@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "__MSG_extensionName__",
-  "description": "__MSG_extensionDescription__",
-  "default_locale": "en",
+  "name": "Singo's Speed Dial",
+  "description": "Singo's Speed Dial, from Yet Another Speed Dial",
+  "default_locale": "zh_CN",
   "version": "3.7.8",
   "author": "dev@conceptualspace.net",
   "icons": {
