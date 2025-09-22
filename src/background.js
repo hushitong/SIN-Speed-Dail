@@ -10,9 +10,9 @@
 // firefox triggers 'moved' for bookmarks saved to different folder than default
 // firefox triggers 'changed' for bookmarks created manually todo: confirm
 // chrome triggers 'created' for bookmarks created manually in bookmark mgr
-chrome.bookmarks.onMoved.addListener(handleBookmarkChanged);
-chrome.bookmarks.onChanged.addListener(handleBookmarkChanged);
-chrome.bookmarks.onCreated.addListener(handleBookmarkChanged);
+// chrome.bookmarks.onMoved.addListener(handleBookmarkChanged);
+// chrome.bookmarks.onChanged.addListener(handleBookmarkChanged);
+// chrome.bookmarks.onCreated.addListener(handleBookmarkChanged);
 chrome.bookmarks.onRemoved.addListener(handleBookmarkRemoved);
 
 chrome.action.onClicked.addListener(handleBrowserAction);
@@ -22,9 +22,9 @@ chrome.runtime.onMessage.addListener(handleMessages);
 chrome.runtime.onInstalled.addListener(handleInstalled);
 
 
-// EVENT HANDLERS //
-
+// 所有使用sendMessage的地方都会触发这个函数
 async function handleMessages(message) {
+	console.log("bg message", message);
 	// Return early if this message isn't meant for the worker
 	if (message.target !== 'background') {
 	  return;
@@ -32,6 +32,9 @@ async function handleMessages(message) {
   
 	// Dispatch the message to an appropriate handler.
 	switch (message.type) {
+		case 'handleBookmarkChanged':
+			handleBookmarkChanged(message.data.changeType,message.data.groupId);
+			break;
 		case 'refreshThumbs':
 			handleManualRefresh(message.data);
 			break;
@@ -54,6 +57,7 @@ async function handleMessages(message) {
 }
 
 async function handleGetThumbs(data, batchSize = 50) {
+	console.log("bg handleGetThumbs", data);
     let bookmarks = data.filter(bookmark => bookmark.url?.startsWith("http"));
 
     if (!bookmarks.length) return;
@@ -95,43 +99,87 @@ async function handleGetThumbs(data, batchSize = 50) {
     }
 }
 
-async function handleBookmarkChanged(id, info) {
+// async function getBookmarks(groupId) {
+//     return new Promise((resolve) => {
+//         chrome.storage.local.get(['bookmarks'], (result) => {
+//             resolve({
+//                 bookmarks: result.bookmarks.filter(b => b.groupId === groupId) || []
+//             });
+//         });
+//     });
+// }
+async function getBookmarks(groupId) {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['bookmarks'], (result) => {
+            // 确保存在 bookmarks 数据且是数组
+            const allBookmarks = Array.isArray(result.bookmarks) ? result.bookmarks : [];
+            // 过滤出当前分组下的书签
+            const filteredBookmarks = allBookmarks.filter(b => b.groupId === groupId);
+            resolve(filteredBookmarks); // 直接返回数组而非对象
+        });
+    });
+}
+
+async function handleBookmarkChanged(changeType,groupId) {
+	console.log("bg bookmark changed", changeType, groupId);
 	// bookmark was just reordered; noop
-	if (info && !info.url && !info.title && info.parentId === info.oldParentId) {
-		return
-	}
+	// if (info && !info.url && !info.title && info.parentId === info.oldParentId) {
+	// 	return
+	// }
 
 	// info may only contain "changed" info -- 
 	// ex. it may not contain url for moves, just old and new folder ids
     // so we always "get" the bookmark to access all its info
-    const bookmark = await chrome.bookmarks.get(id)
+    let bookmarks = null
+	switch (changeType) {
+		case 'Add':
+			bookmarks = await getBookmarks(groupId); 
+			break;
+		case 'Remove':
+			// handled in onRemoved listener
+			refreshOpen();
+			return;
+		case 'Edit':
+			bookmarks = await chrome.bookmarks.get({id: info.id});
+			break;
+		case 'Move':
+			bookmarks = await chrome.bookmarks.get({id: info.id});
+			break;
+		default:
+			console.warn(`Unexpected changeType received: '${changeType}'.`);
+			return;
+	}
 
     // todo: filter changes that arent in the speed dial or subfolder, like moving site out of speed dial
     // todo: debounce the message to any open tabs to rerender or debounce render side?
 
-    if (bookmark[0].url) {
-    	const bookmarkUrl = bookmark[0].url
-		const bookmarkId = bookmark[0].id
-		const parentId = bookmark[0].parentId
+    if (bookmarks[bookmarks.length-1].url) {
+    	const bookmarkUrl = bookmarks[0].url
+		const bookmarkId = bookmarks[0].id
+		const groupId = bookmarks[0].groupId
+
+		refreshOpen();
+		return;
+
     	if (bookmarkUrl !== "data:" && bookmarkUrl !== "about:blank") {
     		const bookmarkData = await chrome.storage.local.get(bookmarkUrl)
-    		if (bookmarkData[bookmarkUrl]) {
-    			// a pre-existing bookmark is being modified; dont fetch new thumbnails
+    		if (!bookmarkData) {
+    			// 假如已经有了该url的缩略图，就不需要重新获取了
     			refreshOpen();
     		} else {
     			// new bookmark needs images
-    			getThumbnails(bookmarkUrl, bookmarkId, parentId, {forcePageReload: true});
+    			getThumbnails(bookmarkUrl, bookmarkId, groupId, {forcePageReload: true});
     		}
     	}
     } else {
     	// folder
-    	if (bookmark[0].title === "New Folder") {
+    	if (bookmarks[0].title === "New Folder") {
     		// firefox creates a placeholder for the folder when created via bookmark manager
             return
     	} else if (info && info.title && Object.keys(info).length === 1) {
 	        // folder is just being renamed
 			//refreshOpen()
-			reloadFolders()
+			reloadGroups()
 	        return
         } else {
         	// folderIds.push(id); todo: chrome.storage.local.set({ folderIds });
@@ -143,7 +191,7 @@ async function handleBookmarkChanged(id, info) {
         			handleBookmarkChanged(child.id)
         		}
         	} else {
-        		reloadFolders()
+        		reloadGroups()
         	}
         }
     }
@@ -173,6 +221,7 @@ function handleContextMenuClick(info, tab) {
 
 function handleBrowserAction(tab) {
 	// if tab is a web page bookmark it to speed dial
+	console.log(tab);
 	if (tab.url && (tab.url.startsWith('https://') || tab.url.startsWith('http://'))) {
 		createBookmarkFromContextMenu(tab);
 		chrome.action.setBadgeText({text:"✔", tabId:tab.id})
@@ -311,9 +360,9 @@ async function handleInstalled(details) {
 }
 
 
-// THUMBNAIL FUNCTIONS //
-
-async function getThumbnails(url, id, parentId, options = {quickRefresh: false, forceScreenshot: false, forcePageReload: false}) {
+// 生成缩略图,假如存在screenshot就用screenshot,否则传消息给 offscreen 进行截图
+async function getThumbnails(url, id, groupId, options = {quickRefresh: false, forceScreenshot: false, forcePageReload: false}) {
+	console.log("bg getThumbnails", url, id, groupId, options);
 
 	if(!url || !id) {
 		console.log("getThumbnails: missing url or id")
@@ -335,7 +384,7 @@ async function getThumbnails(url, id, parentId, options = {quickRefresh: false, 
 		data: {
             url,
 			id,
-			parentId,
+			parentId: groupId,
             screenshot,
 			quickRefresh: options.quickRefresh,
 			forcePageReload: options.forcePageReload,
@@ -343,7 +392,7 @@ async function getThumbnails(url, id, parentId, options = {quickRefresh: false, 
 	});
 }
 
-async function saveThumbnails(url, id, parentId, images, bgColor, forcePageReload=false) {
+async function saveThumbnails(url, id, groupId, images, bgColor, forcePageReload=false) {
 	if (images && images.length) {
 		let thumbnails = [];
 		let result = await chrome.storage.local.get(url)
@@ -365,7 +414,7 @@ async function saveThumbnails(url, id, parentId, images, bgColor, forcePageReloa
 			type: 'thumbBatch',
 			data: [{
 				id,
-				parentId,
+				parentId: groupId,
 				url,
 				thumbnail: images[0],
 				bgColor
@@ -381,10 +430,10 @@ function refreshOpen() {
 	});
 }
 
-function reloadFolders() {
+function reloadGroups() {
 	chrome.runtime.sendMessage({
 		target: 'newtab',
-		data: {reloadFolders:true}
+		data: {reloadGroups:true}
 	});
 }
 

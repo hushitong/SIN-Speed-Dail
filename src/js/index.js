@@ -8,7 +8,7 @@
 const bookmarksContainerParent = document.getElementById('tileContainer');
 const bookmarksContainer = bookmarksContainerParent
 const foldersContainer = document.getElementById('folders');
-const addFolderButton = document.getElementById('addFolderButton');
+const addGroupButton = document.getElementById('addFolderButton');
 const menu = document.getElementById('contextMenu');
 const folderMenu = document.getElementById('folderMenu');
 const settingsMenu = document.getElementById('settingsMenu');
@@ -20,20 +20,20 @@ const createDialModalContent = document.getElementById('createDialModalContent')
 const createDialModalURL = document.getElementById('createDialModalURL');
 const createDialModalSave = document.getElementById('createDialModalSave');
 
-const createFolderModal = document.getElementById('createFolderModal');
+const createGroupModal = document.getElementById('createFolderModal');
 const createFolderModalContent = document.getElementById('createFolderModalContent');
 const createFolderModalName = document.getElementById('createFolderModalName');
-const createFolderModalSave = document.getElementById('createFolderModalSave');
+const createGroupModalSave = document.getElementById('createFolderModalSave');
 
-const editFolderModal = document.getElementById('editFolderModal');
+const editGroupModal = document.getElementById('editFolderModal');
 const editFolderModalContent = document.getElementById('editFolderModalContent');
 const editFolderModalName = document.getElementById('editFolderModalName');
-const editFolderModalSave = document.getElementById('editFolderModalSave');
+const editGroupModalSave = document.getElementById('editFolderModalSave');
 
-const deleteFolderModal = document.getElementById('deleteFolderModal');
+const deleteGroupModal = document.getElementById('deleteFolderModal');
 const deleteFolderModalContent = document.getElementById('deleteFolderModalContent');
 const deleteFolderModalName = document.getElementById('deleteFolderModalName');
-const deleteFolderModalSave = document.getElementById('deleteFolderModalSave');
+const deleteGroupModalSave = document.getElementById('deleteFolderModalSave');
 
 const importExportModal = document.getElementById('importExportModal');
 const importExportModalContent = document.getElementById('importExportModalContent');
@@ -106,20 +106,21 @@ chrome.runtime.onMessage.addListener(handleMessages);
 
 let cache = {};
 let resizing = false;
-let settings = null;
-let speedDialId = null;
 let sortable = null;
 let targetTileHref = null;
 let targetTileId = null;
 let targetTileTitle = null;
 let targetNode = null;
-let targetFolder = null;
-let targetFolderName = null;
-let targetFolderLink = null;
-let folders = [];
-let currentFolder = null;
+let targetGroupId = null;
+let targetGroupName = null;
+let targetGroupLink = null;
+// let folders = [];
+let data = {};
+let settings = null;
+let selectedGroupId = null;
+let currentGroupId = null;
 let scrollPos = 0;
-let homeFolderTitle = chrome.i18n.getMessage('home');
+let homeGroupTitle = chrome.i18n.getMessage('home');
 let windowSize = null;
 let containerSize = null;
 let layoutFolder = false;
@@ -131,6 +132,13 @@ const helpUrl = 'https://conceptualspace.github.io/yet-another-speed-dial/';
 let isToastVisible = false;
 
 let folderIds = [];
+
+const homeGroup = {
+    id: 'home',
+    title: homeGroupTitle,
+    position: 1,
+    color: '#333333'
+};
 
 let defaults = {
     wallpaper: true,
@@ -148,7 +156,7 @@ let defaults = {
     textColor: '#ffffff',
     dialSize: 'medium',
     dialRatio: 'wide',
-    currentFolder: null,
+    currentGroupId: homeGroup.id,
 };
 
 const debounce = (func, delay = 500, immediate = false) => {
@@ -178,9 +186,9 @@ displayClock();
 
 function getBookmarks(folderId) {
     chrome.bookmarks.getChildren(folderId).then(result => {
-        if (folderId === speedDialId && !result.length && settings.showFolders) {
+        if (folderId === selectedGroupId && !result.length && settings.showFolders) {
             //noBookmarks.style.display = 'block';
-            addFolderButton.style.display = 'none';
+            addGroupButton.style.display = 'none';
         }
         printBookmarks(result, folderId)
     }, error => {
@@ -188,115 +196,122 @@ function getBookmarks(folderId) {
     });
 }
 
-async function buildDialPages(speedDialId, currentFolderId) {
-    async function getChildren(folderId) {
-        return await chrome.bookmarks.getChildren(folderId);
+// 数据管理函数 - 获得
+async function getData() {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(['groups', 'bookmarks'], (result) => {
+            resolve({
+                groups: result.groups || [],
+                bookmarks: result.bookmarks || []
+            });
+        });
+    });
+}
+// 数据管理函数 - 保存
+async function saveData(data) {
+    return new Promise((resolve) => {
+        chrome.storage.local.set(data, () => {
+            resolve();
+        });
+    });
+}
+
+// 建立分组页面，初始进入页面时使用
+async function buildDialPages(selectedGroupId) {
+    // 获得 bookmarks 和 groups 数据
+    data = await getData();
+    console.log(data);
+    const groups = data.groups;
+
+    if(groups.length <1){
+        // 把主页分组添加到分组列表的开头
+        groups.unshift(homeGroup);
+
+        saveData({ groups,settings });
     }
 
-    const children = await getChildren(speedDialId);
-    if (!children.length) {
-        // new install
-        addFolderButton.style.display = 'none';
+    // 排序分组
+    groups.sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    // 如果没有分组和书签，则显示初始设置界面
+    if (groups.length <= 1 && data.bookmarks.length === 0) {
+        addGroupButton.style.display = 'none';
         printNewSetup();
         return;
     }
-
-    const folders = children.filter(folder => !folder.url);
-
-    // Include speedDial folder
-    folders.push({ id: speedDialId, title: homeFolderTitle, index: -1 });
-
-    // sort folders
-    folders.sort((a, b) => {
-        return (a.index || 0) - (b.index || 0);
-    });
 
     // clear any existing data so we can refresh
     foldersContainer.innerHTML = '';
 
     // Build folder header links
-    if (folders && folders.length > 1) {
-        for (let folder of folders) {
-            folderLink(folder.title, folder.id);
+    if (groups && groups.length >= 1) {
+        for (let group of groups) {
+            groupLink(group.title, group.id);
         }
     }
 
     // Process the current folder's children first
-    const currentChildren = await getChildren(currentFolderId);
-    await printBookmarks(currentChildren, currentFolderId);
+    const currentBookmarks = data.bookmarks.filter(b => b.groupId === selectedGroupId);
+    await printBookmarks(currentBookmarks, selectedGroupId);
 
-
-    // Process the rest of the folders, if there are more. exclude the current folder
-    if (folders.length > 1) {
-        for (let folder of folders) {
-            if (folder.id !== currentFolderId) {
-                const children = await getChildren(folder.id);
-                await printBookmarks(children, folder.id);
+    // 在排除当前分组后，处理其他分组的书签，主要是添加分组容器并且在容器内显示+号按钮
+    if (groups.length > 1) {
+        for (let group of groups) {
+            if (group.id !== selectedGroupId) {
+                const children = data.bookmarks.filter(b => b.groupId === group.id);
+                await printBookmarks(children, group.id);
             }
         }
     }
 }
 
-async function buildFolderPages(speedDialId) {
-    async function getChildren(folderId) {
-        return await chrome.bookmarks.getChildren(folderId);
-    }
+// 页面刷新：仅刷新分组标题
+async function reBuildGroupPages() {
+    data = await getData();
+    const bookmarks = data.bookmarks || [];
 
-    const children = await getChildren(speedDialId);
-    if (!children.length) {
-        // new install
-        addFolderButton.style.display = 'none';
+    if (!bookmarks.length) {
+        addGroupButton.style.display = 'none';
         printNewSetup();
         return;
     }
 
-    const folders = children.filter(folder => !folder.url);
-
-    // Include speedDial folder
-    folders.push({ id: speedDialId, title: homeFolderTitle, index: -1 });
-
-    // sort folders
-    folders.sort((a, b) => {
-        return (a.index || 0) - (b.index || 0);
-    });
+    const groups = data.groups || [];
 
     // clear any existing data so we can refresh
     foldersContainer.innerHTML = '';
 
     // Build folder header links
-    if (folders && folders.length > 1) {
-        for (let folder of folders) {
-            folderLink(folder.title, folder.id);
+    if (groups && groups.length > 1) {
+        for (let group of groups) {
+            groupLink(group.title, group.id);
         }
     }
 
     return
 }
 
+// 删除书签
+async function removeBookmark(id) {
+    data = await getData();
 
-function removeBookmark(url) {
-    let currentParent = currentFolder ? currentFolder : speedDialId
-    chrome.bookmarks.search({ url })
-        .then(bookmarks => {
-            let cleanup = bookmarks.length < 2;
-            for (let bookmark of bookmarks) {
-                if (bookmark.parentId === currentParent) {
-                    // animate removal
-                    targetNode.style.display = "none";
-                    layout(true);
-                    // remove dial
-                    targetNode.remove();
-                    chrome.bookmarks.remove(bookmark.id);
-                    // if we have duplicates (ex in other folders), keep the image cache, otherwise purge it
-                    if (cleanup) {
-                        chrome.storage.local.remove(url);
-                    }
-                }
-            }
-        })
+    // 过滤掉要删除的书签
+    const updatedBookmarks = data.bookmarks.filter(bookmark => bookmark.id !== id);
+    
+    // 保存更新后的书签数组
+    return new Promise((resolve) => {
+        chrome.storage.local.set({
+            bookmarks: updatedBookmarks
+        }, () => {
+            chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId:currentGroupId,changeType:'Remove' } });
+            resolve(true);
+        });
+    });
 }
 
-function moveFolder(id, oldIndex, newIndex, newSiblingId) {
+// 移动分组顺序
+function moveGroup(id, oldIndex, newIndex, newSiblingId) {
+    console.log("moveFolder:", id, oldIndex, newIndex, newSiblingId);
     let options = {};
 
     function move(id, options) {
@@ -327,6 +342,7 @@ function moveFolder(id, oldIndex, newIndex, newSiblingId) {
     }
 }
 
+// 移动书签顺序
 function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSiblingId) {
     let options = {}
 
@@ -387,28 +403,29 @@ function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSibli
     }
 }
 
-function showFolder(id) {
+// 显示某个分组
+function showGroup(groupId) {
     hideSettings();
-    let folders = document.getElementsByClassName('container');
-    for (let folder of folders) {
-        if (folder.id === id) {
-            folder.style.display = "flex"
-            folder.style.opacity = "0";
+    let groups = document.getElementsByClassName('container');
+    for (let group of groups) {
+        if (group.id === groupId) {
+            group.style.display = "flex"
+            group.style.opacity = "0";
             layoutFolder = true;
             // transition between folders. todo more elegant solution
             setTimeout(function () {
                 //layoutFolder = id;
-                folder.style.opacity = "1";
+                group.style.opacity = "1";
                 animate()
             }, 20);
         } else {
-            folder.style.display = "none";
+            group.style.display = "none";
         }
     }
     // style the active tab
     let folderTitles = document.getElementsByClassName('folderTitle');
     for (let title of folderTitles) {
-        if (title.attributes.folderid.value === id) {
+        if (title.attributes.folderid.value === groupId) {
             title.classList.add('activeFolder');
         } else {
             title.classList.remove('activeFolder');
@@ -431,26 +448,30 @@ function printFolderBookmarks() {
     }
 }
 
-function folderLink(title, id) {
+// 生成分组链接
+function groupLink(groupTitle, groupId) {
     let a = document.createElement('a');
-    if (id === speedDialId) {
+    if (groupId === homeGroup.id) {
         a.id = "homeFolderLink";
     }
-    //a.classList.add('tile');
+    
     a.classList.add('folderTitle');
-    a.setAttribute('folderId', id);
-    let linkText = document.createTextNode(title);
+    if(groupId === currentGroupId){
+        a.classList.add('activeFolder');
+    }
+    a.setAttribute('folderId', groupId);
+    let linkText = document.createTextNode(groupTitle);
     a.appendChild(linkText);
-    //a.href = "#"+bookmark.id;
+
     a.onclick = function () {
-        showFolder(id);
-        currentFolder = id;
+        showGroup(groupId);
+        selectedGroupId = groupId;
+        currentGroupId = groupId;
         scrollPos = 0;
         bookmarksContainerParent.scrollTop = scrollPos;
 
-        settings.currentFolder = id;
+        settings.currentGroupId = groupId;
         chrome.storage.local.set({ settings });
-        //tabMessagePort.postMessage({currentFolder: id});
     };
 
     // todo: allow dropping directly on folder title?
@@ -460,37 +481,34 @@ function folderLink(title, id) {
     foldersContainer.appendChild(a);
 }
 
-function createFolder() {
+function addGroupBtn() {
     hideSettings();
     createFolderModalName.value = '';
     createFolderModalName.focus();
-    createFolderModal.style.transform = "translateX(0%)";
-    createFolderModal.style.opacity = "1";
+    createGroupModal.style.transform = "translateX(0%)";
+    createGroupModal.style.opacity = "1";
     createFolderModalContent.style.transform = "scale(1)";
     createFolderModalContent.style.opacity = "1";
 }
 
-function saveFolder() {
+function createGroup() {
     let name = createFolderModalName.value.trim();
+    const orgGroupCount = data.groups.length;
+    data.groups.push({ id: generateId(), title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
 
-    if (name.length) {
-        chrome.bookmarks.create({
-            title: name,
-            parentId: speedDialId
-        }).then(node => {
-            hideModals();
-        });
-    } else {
-        hideModals();
-    }
+    const groups = data.groups;
+    saveData({ groups }).then(() => {
+        hideModals()
+    });
 }
 
-function editFolder() {
+function editGroup() {
     let title = editFolderModalName.value.trim();
-    chrome.bookmarks.update(targetFolder, {
-        title
-    }).then(node => {
-        hideModals();
+    data.groups.filter(g => g.id === targetGroupId)[0].title = title;
+
+    const groups = data.groups;
+    saveData({ groups }).then(() => {
+        hideModals()
     }).catch(err => {
         console.log(err);
     });
@@ -507,20 +525,20 @@ function refreshThumbnails(url, tileid) {
 }
 
 function removeFolder() {
-    chrome.bookmarks.removeTree(targetFolder).then(() => {
+    chrome.bookmarks.removeTree(targetGroupId).then(() => {
         hideModals();
-        targetFolderLink?.remove();
-        folders.splice(folders.indexOf(targetFolder), 1);
+        targetGroupLink?.remove();
+        folders.splice(folders.indexOf(targetGroupId), 1);
         if (!folders.length) {
             //document.getElementById('homeFolderLink').remove();
             // todo: better manager this state
         }
 
-        if (currentFolder === targetFolder) {
-            currentFolder = speedDialId;;
+        if (currentGroup === targetGroupId) {
+            currentGroup = selectedGroupId;;
             bookmarksContainerParent.scrollTop = scrollPos;
-            showFolder(speedDialId);
-            settings.currentFolder = speedDialId;
+            showGroup(selectedGroupId);
+            settings.currentFolder = selectedGroupId;
             chrome.storage.local.set({ settings })
         }
 
@@ -529,9 +547,9 @@ function removeFolder() {
     });
 }
 
-function getChildren(folderId) {
+function getChildren(groupId) {
     return new Promise((resolve, reject) => {
-        chrome.bookmarks.getChildren(folderId).then(children => {
+        chrome.bookmarks.getChildren(groupId).then(children => {
             resolve(children);
         });
     });
@@ -539,7 +557,7 @@ function getChildren(folderId) {
 
 function refreshAllThumbnails() {
     let bookmarks = [];
-    let parent = currentFolder ? currentFolder : speedDialId;
+    let parent = currentGroup ? currentGroup : selectedGroupId;
 
     hideModals();
 
@@ -582,26 +600,26 @@ function batchInsert(parent, fragment, batchSize = 50, onComplete) {
     insertBatch();
 }
 
+// 显示初始设置界面
 async function printNewSetup() {
-    console.log("new install")
     let fragment = document.createDocumentFragment();
 
     // Ensure the container exists
-    let folderContainerEl = document.getElementById(speedDialId);
+    let folderContainerEl = document.getElementById(selectedGroupId);
+    console.log("new install，@speedDialId:", selectedGroupId);
     if (!folderContainerEl) {
         folderContainerEl = document.createElement('div');
-        folderContainerEl.id = speedDialId;
+        folderContainerEl.id = selectedGroupId;
         folderContainerEl.classList.add('container');
-        folderContainerEl.style.display = currentFolder === speedDialId ? 'flex' : 'none';
-        //folderContainerEl.style.opacity = settings.rememberFolder && currentFolder === parentId ? '0' : '1';
+        folderContainerEl.style.display = currentGroupId === selectedGroupId ? 'flex' : 'none';
         folderContainerEl.style.opacity = "0";
 
-        if (currentFolder === speedDialId) {
+        if (currentGroupId === selectedGroupId) {
             setTimeout(() => {
                 folderContainerEl.style.opacity = "1";
                 animate();
             }, 20);
-            document.querySelector(`[folderid="${currentFolder}"]`)?.classList.add('activeFolder');
+            document.querySelector(`[folderid="${currentGroupId}"]`)?.classList.add('activeFolder');
         }
         bookmarksContainerParent.append(folderContainerEl);
     }
@@ -634,12 +652,12 @@ async function printNewSetup() {
     bookmarksContainerParent.scrollTop = scrollPos;
 }
 
-function createNewDialButton(parentId) {
+function createNewDialButton(groupId) {
     let aNewDial = document.createElement('a');
     aNewDial.classList.add('tile', 'createDial');
     aNewDial.onclick = () => {
         hideSettings();
-        buildCreateDialModal(parentId);
+        buildCreateDialModal(groupId);
         modalShowEffect(createDialModalContent, createDialModal);
     };
 
@@ -654,7 +672,8 @@ function createNewDialButton(parentId) {
     return aNewDial;
 }
 
-async function printBookmarks(bookmarks, parentId) {
+async function printBookmarks(bookmarks, selectedGroupId) {
+    console.log("printBookmarks:", bookmarks, selectedGroupId);
     let fragment = document.createDocumentFragment();
 
     // Collect URLs for batch thumbnail fetching
@@ -666,13 +685,14 @@ async function printBookmarks(bookmarks, parentId) {
     if (settings.defaultSort === "first") {
         bookmarks = bookmarks.reverse();
     }
-    chrome.runtime.sendMessage({target: 'background', type: 'getThumbs', data: bookmarks})
+    // chrome.runtime.sendMessage({target: 'background', type: 'getThumbs', data: bookmarks})
     //let thumbnails = await chrome.storage.local.get(urls);
 
     // Process bookmarks
     if (bookmarks) {
         for (let bookmark of bookmarks) {
-            if (!bookmark.url && bookmark.title && bookmark.parentId === speedDialId) continue;
+            console.log("processing bookmark:", bookmark);
+            // if (!bookmark.url && bookmark.title && bookmark.groupId === selectedGroupId) continue;
 
             if (bookmark.url?.startsWith("http")) {
                 //let images = thumbnails[bookmark.url] || {};
@@ -688,7 +708,7 @@ async function printBookmarks(bookmarks, parentId) {
                 main.classList.add('tile-main');
 
                 let content = document.createElement('div');
-                content.setAttribute('id', bookmark.parentId + "-" + bookmark.id);
+                content.setAttribute('id', bookmark.groupId + "-" + bookmark.id);
                 content.classList.add('tile-content');
                 //content.style.backgroundImage = thumbBg ? `url('${thumbUrl}'), ${thumbBg}` : '';
                 //content.style.backgroundColor = thumbBg ? '' : 'rgba(255, 255, 255, 0.5)';
@@ -708,7 +728,7 @@ async function printBookmarks(bookmarks, parentId) {
         }
     }
 
-    let newDialButton = createNewDialButton(parentId);
+    let newDialButton = createNewDialButton(selectedGroupId);
 
     if (settings.defaultSort !== "first") {
         fragment.appendChild(newDialButton);
@@ -717,21 +737,21 @@ async function printBookmarks(bookmarks, parentId) {
     }
 
     // Ensure the container exists
-    let folderContainerEl = document.getElementById(parentId);
+    let folderContainerEl = document.getElementById(selectedGroupId);
     if (!folderContainerEl) {
         folderContainerEl = document.createElement('div');
-        folderContainerEl.id = parentId;
+        folderContainerEl.id = selectedGroupId;
         folderContainerEl.classList.add('container');
-        folderContainerEl.style.display = currentFolder === parentId ? 'flex' : 'none';
+        folderContainerEl.style.display = currentGroupId === selectedGroupId ? 'flex' : 'none';
         //folderContainerEl.style.opacity = settings.rememberFolder && currentFolder === parentId ? '0' : '1';
         folderContainerEl.style.opacity = "0";
 
-        if (currentFolder === parentId) {
+        if (currentGroupId === selectedGroupId) {
             setTimeout(() => {
                 folderContainerEl.style.opacity = "1";
                 animate();
             }, 20);
-            document.querySelector(`[folderid="${currentFolder}"]`)?.classList.add('activeFolder');
+            document.querySelector(`[folderid="${currentGroupId}"]`)?.classList.add('activeFolder');
         }
         bookmarksContainerParent.append(folderContainerEl);
     }
@@ -749,225 +769,12 @@ async function printBookmarks(bookmarks, parentId) {
         onEnd: onEndHandler
     });
 
-    // Sorting optimization (this is done now?)
-    /*
-    if (settings.defaultSort === "first") {
-        Array.from(fragment.childNodes).reverse().forEach(node => fragment.appendChild(node));
-    }
-        */
-
     // Optimize container update using batch insert
     folderContainerEl.textContent = ''; // todo: is this even required here? would innerHTML = '' be preferable?
     batchInsert(folderContainerEl, fragment, 50)
 
     bookmarksContainerParent.scrollTop = scrollPos;
 }
-
-
-/*
-// assumes 'bookmarks' param is content of a folder (from getBookmarks)
-async function printBookmarksOld(bookmarks, parentId) {
-    let fragment = document.createDocumentFragment();
-
-    //let folderContainer = document.createElement('div');
-    //folderContainer.id = parentId;
-    //document.body.append(div)
-
-    if (bookmarks) {
-        for (let bookmark of bookmarks) {
-            // folders
-            // ignore subfolders for now
-            if (!bookmark.url && bookmark.title && bookmark.parentId === speedDialId) {
-                // setup "tabs" folder header links
-                if (!folders.length) {
-                    folderLink(homeFolderTitle, speedDialId)
-                }
-                if (folders.indexOf(bookmark.id) === -1) {
-                    folders.push(bookmark.id);
-                    folderLink(bookmark.title, bookmark.id)
-                } else {
-                    let el = document.querySelector(`[folderid="${bookmark.id}"]`);
-                    if (el) { el.innerText = bookmark.title }
-                }
-
-            } else if (bookmark.url && bookmark.url.startsWith("http")) {
-                // restricted to valid url schemes for security reasons -- http and https. see #26
-                // in ff bookmark "separators" can be created that have "data:" as the url.
-                let thumbBg, thumbUrl = null;
-                if (cache[bookmark.url]) {
-                    // if the image is a blob:
-                    //iconURL = URL.createObjectURL(result.icon);
-                    //iconURL = result.icon;
-                    thumbUrl = cache[bookmark.url][0];
-                    thumbBg = cache[bookmark.url][1]
-                } else {
-                    let images = await getThumbs(bookmark.url);
-                    //console.log(images);
-                    if (images) {
-                        thumbUrl = images.thumbnails[0];
-                        thumbBg = images.bgColor;
-                        cache[bookmark.url] = [thumbUrl, thumbBg];
-                    }
-                }
-                let a = document.createElement('a');
-                a.classList.add('tile');
-                a.href = bookmark.url;
-                a.setAttribute('data-id', bookmark.id);
-
-                let main = document.createElement('div');
-                main.classList.add('tile-main');
-
-                let content = document.createElement('div');
-                content.classList.add('tile-content');
-                if (thumbBg) {
-                    content.style.backgroundImage = `url('${thumbUrl}'), ${thumbBg}`;
-                } else {
-                    // no image, use default
-                    content.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                }
-
-                let title = document.createElement('div');
-                title.classList.add('tile-title');
-                if (!settings.showTitles) {
-                    title.classList.add('hide');
-                }
-                title.textContent = bookmark.title;
-
-                main.appendChild(content);
-                main.appendChild(title);
-                a.appendChild(main);
-                fragment.appendChild(a);
-            }
-        }
-    }
-
-    // new dial button
-    let aNewDial = document.createElement('a');
-    aNewDial.classList.add('tile', 'createDial');
-    aNewDial.onclick = function () {
-        hideSettings();
-        buildCreateDialModal(parentId);
-        modalShowEffect(createDialModalContent, createDialModal);
-    };
-    let main = document.createElement('div');
-    main.classList.add('tile-main');
-    let content = document.createElement('div');
-    content.classList.add('tile-content', 'createDial-content');
-    main.appendChild(content);
-    aNewDial.appendChild(main);
-
-    // root speed dial dir
-    if (parentId === speedDialId) {
-        // populate folders divs
-        if (folders.length) {
-            printFolderBookmarks();
-        }
-
-        if (settings.defaultSort === "first") {
-            let i = fragment.childNodes.length;
-            while (i--)
-                fragment.appendChild(fragment.childNodes[i]);
-        }
-
-        if (bookmarks.length) {
-            fragment.appendChild(aNewDial);
-        } else {
-            // new install splash screen
-            const noBookmarksDiv = document.createElement('div');
-            noBookmarksDiv.className = 'default-content';
-            noBookmarksDiv.id = 'noBookmarks';
-            noBookmarksDiv.innerHTML = `
-                <h1 class="default-content" data-locale="newInstall1">${chrome.i18n.getMessage('newInstall1')}</h1>
-                <p class="default-content helpText" data-locale="newInstall2">${chrome.i18n.getMessage('newInstall2')}</p>
-                <p class="default-content helpText" data-locale="newInstall3">${chrome.i18n.getMessage('newInstall3')}</p>
-                <p class="default-content helpText" data-locale="newInstall4">${chrome.i18n.getMessage('newInstall4')}</p>
-                <div class="cta-container">
-                <p id="splashImport" class="default-content helpText cta" >
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M260-160q-91 0-155.5-63T40-377q0-78 47-139t123-78q25-92 100-149t170-57q117 0 198.5 81.5T760-520q69 8 114.5 59.5T920-340q0 75-52.5 127.5T740-160H520q-33 0-56.5-23.5T440-240v-206l-64 62-56-56 160-160 160 160-56 56-64-62v206h220q42 0 71-29t29-71q0-42-29-71t-71-29h-60v-80q0-83-58.5-141.5T480-720q-83 0-141.5 58.5T280-520h-20q-58 0-99 41t-41 99q0 58 41 99t99 41h100v80H260Zm220-280Z"/></svg>
-                    Import
-                </p>
-                <p id="splashAddDial" class="default-content helpText cta" >
-                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></svg>
-                Add Site
-                </p>
-                </div>
-            `;
-            fragment.appendChild(noBookmarksDiv);
-        }
-        bookmarksContainer.innerHTML = "";
-        bookmarksContainer.appendChild(fragment);
-
-        if (settings.rememberFolder && currentFolder && currentFolder !== speedDialId) {
-            bookmarksContainer.style.opacity = "1";
-            bookmarksContainer.style.display = "none";
-        } else {
-            //bookmarksContainer.style.display = "flex";
-        }
-        bookmarksContainer.style.opacity = "1";
-        bookmarksContainerParent.scrollTop = scrollPos;
-        animate();
-        // we take care of this as part of "sort" fn now..
-        //bookmarksContainer.style.opacity = "1";
-
-    } else {
-        // build a folder "tab"
-        if (!document.getElementById(parentId)) {
-            let folderContainer = document.createElement('div');
-            folderContainer.id = parentId;
-            folderContainer.classList.add('container');
-            if (settings.rememberFolder && currentFolder === parentId) {
-                folderContainer.style.display = 'flex';
-                folderContainer.style.opacity = "0";
-                setTimeout(function () {
-                    //layoutFolder = id;
-                    folderContainer.style.opacity = "1";
-                    animate()
-                }, 20);
-                let titleEl = document.querySelectorAll(`[folderid="${currentFolder}"]`)[0];
-                if (titleEl) {
-                    titleEl.classList.add('activeFolder');
-                }
-            } else {
-                folderContainer.style.display = 'none';
-                folderContainer.style.opacity = "1";
-            }
-            //document.body.append(folderContainer);
-            bookmarksContainerParent.append(folderContainer);
-        }
-
-        let folderContainerEl = document.getElementById(parentId);
-
-        // todo: this is fubar
-        let sortable = new Sortable(folderContainerEl, {
-            group: 'shared',
-            animation: 160,
-            ghostClass: 'selected',
-            dragClass: 'dragging',
-            filter: ".createDial",
-            delay: 500, // fixes #40
-            delayOnTouchOnly: true,
-            onMove: onMoveHandler,
-            onEnd: onEndHandler
-        });
-
-        if (settings.defaultSort === "first") {
-            let i = fragment.childNodes.length;
-            while (i--)
-                fragment.appendChild(fragment.childNodes[i]);
-        }
-
-        fragment.appendChild(aNewDial);
-
-        // append bookmarks to container
-        folderContainerEl.innerHTML = "";
-        folderContainerEl.appendChild(fragment);
-
-        //animate();
-        bookmarksContainerParent.scrollTop = scrollPos;
-        //
-    }
-}
-*/
 
 function showContextMenu(el, top, left) {
     if ((document.body.clientWidth - left) < (el.clientWidth + 30)) {
@@ -1003,7 +810,7 @@ function hideSettings() {
 }
 
 function hideModals() {
-    let modals = [modal, createDialModal, createFolderModal, editFolderModal, deleteFolderModal, refreshAllModal, importExportModal];
+    let modals = [modal, createDialModal, createGroupModal, editGroupModal, deleteGroupModal, refreshAllModal, importExportModal];
     let modalContents = [modalContent, createDialModalContent, createFolderModalContent, editFolderModalContent, deleteFolderModalContent, refreshAllModalContent, importExportModalContent]
 
     for (let button of document.getElementsByTagName('button')) {
@@ -1067,7 +874,7 @@ function showToast(message) {
 
 function buildCreateDialModal(parentId) {
     createDialModalURL.value = '';
-    createDialModalURL.parentId = parentId ? parentId : speedDialId;
+    createDialModalURL.parentId = parentId ? parentId : selectedGroupId;
     createDialModalURL.focus();
 }
 
@@ -1214,21 +1021,52 @@ function rectifyUrl(url) {
     }
 }
 
+// 添加新书签
 function createDial() {
+    console.log('createDial', createDialModalURL);
     let url = rectifyUrl(createDialModalURL.value.trim());
-
-    chrome.bookmarks.create({
-        title: url,
-        url: url,
-        parentId: createDialModalURL.parentId
-    }).then(node => {
+    // todo: 真正使用标题而
+    let title = url;
+    saveNewBookmark(currentGroupId, url, title).then(_ => {
         hideModals();
         showToast(' Capturing images...')
+        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId:currentGroupId,changeType:'Add' } });
     });
 }
 
+// 保存新书签
+async function saveNewBookmark(groupId, url, title) {
+    if (!url || !title) return;
+    
+    const data = await getData();
+    // 获取当前分组的最大位置
+    const groupBookmarks = data.bookmarks.filter(b => b.groupId === groupId);
+    const maxPosition = groupBookmarks.length > 0 
+        ? Math.max(...groupBookmarks.map(b => b.position || 0)) 
+        : 0;
+    
+    const newBookmark = {
+        id: generateId(),
+        groupId: groupId,
+        title: title,
+        url: url,
+        position: maxPosition + 1,
+        thumbnail: null,
+        visits: 0,
+        createtime: new Date().toISOString()
+    };
+    
+    data.bookmarks.push(newBookmark);
+    await saveData(data);
+}
+
+// 生成唯一ID
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
 function openAllTabs() {
-    let folder = currentFolder ? document.getElementById(currentFolder) : document.getElementById('wrap');
+    let folder = currentGroup ? document.getElementById(currentGroup) : document.getElementById('wrap');
 
     if (folder) {
         let dials = [...folder.getElementsByClassName('tile')];
@@ -1500,7 +1338,7 @@ function saveBookmarkSettings() {
                     chrome.storage.local.remove(url)
                 }
                 for (let bookmark of bookmarks) {
-                    let currentParent = currentFolder ? currentFolder : speedDialId
+                    let currentParent = currentGroup ? currentGroup : selectedGroupId
                     if (bookmark.parentId === currentParent) {
                         chrome.bookmarks.update(bookmark.id, {
                             title,
@@ -1577,11 +1415,11 @@ function ease(progress) {
 
 const animate = debounce(() => {
     requestAnimationFrame(() => { // Use requestAnimationFrame for smoother updates
-    let currentParent;
-    if (currentFolder) {
-        currentParent = currentFolder
-    }
-    const nodes = document.querySelectorAll(`[id="${currentParent}"] > .tile`);
+    // let currentParent;
+    // if (currentGroup) {
+    //     currentParent = currentGroup
+    // }
+    const nodes = document.querySelectorAll(`[id="${selectedGroupId}"] > .tile`);
     const total = nodes.length;
 
     if (!nodes.length) return;
@@ -1725,6 +1563,7 @@ function addImage(image) {
     }
 }
 
+// 根据设置应用样式
 function applySettings() {
     return new Promise(function (resolve, reject) {
         // apply settings to speed dial
@@ -1744,16 +1583,6 @@ function applySettings() {
         if (settings.textColor) {
             document.documentElement.style.setProperty('--color', settings.textColor);
         }
-
-        /*
-        if (settings.scaleImages) {
-            document.documentElement.style.setProperty('--image-scaling', 'contain');
-            //document.documentElement.style.setProperty('--image-width', '140px');
-        } else {
-            document.documentElement.style.setProperty('--image-scaling', 'cover');
-            //document.documentElement.style.setProperty('--image-width', '188px');
-        }
-        */
 
         if (settings.maxCols && settings.maxCols !== "100") {
             //todo cleanup - fixed values
@@ -1897,6 +1726,7 @@ function applySettings() {
     });
 }
 
+// 保存设置
 function saveSettings() {
     settings.wallpaper = wallPaperEnabled.checked;
     settings.wallpaperSrc = imgPreview.src;
@@ -1913,7 +1743,7 @@ function saveSettings() {
     settings.dialRatio = dialRatioInput.value;
     settings.defaultSort = defaultSortInput.value;
     settings.rememberFolder = rememberFolderInput.checked;
-    settings.currentFolder = currentFolder ? currentFolder : speedDialId;
+    settings.currentFolder = currentGroup ? currentGroup : selectedGroupId;
 
     applySettings();
 
@@ -1949,9 +1779,9 @@ document.addEventListener("contextmenu", function (e) {
         showContextMenu(menu, e.pageY, e.pageX);
         return false;
     } else if (e.target.classList.contains('folderTitle') && e.target.id !== "homeFolderLink") {
-        targetFolderLink = e.target;
-        targetFolder = e.target.attributes.folderId.nodeValue;
-        targetFolderName = e.target.textContent;
+        targetGroupLink = e.target;
+        targetGroupId = e.target.attributes.folderId.nodeValue;
+        targetGroupName = e.target.textContent;
         showContextMenu(folderMenu, e.pageY, e.pageX);
         return false;
     } else if (e.target === document.body || e.target.className === 'folders' || e.target.className === 'container' || e.target.className === 'tileContainer' || e.target.className === 'cta-container' || e.target.className === 'default-content' || e.target.className === 'default-content helpText') {
@@ -1973,6 +1803,7 @@ window.addEventListener("click", e => {
 
 // listen for menu item
 window.addEventListener("mousedown", e => {
+    console.log(e.target);
     hideMenus();
     if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'dialSize' || e.target.id === 'dialRatio') {
         return
@@ -1983,7 +1814,7 @@ window.addEventListener("mousedown", e => {
     }
     if (e.target.closest('#splashAddDial')) {
         e.preventDefault();
-        buildCreateDialModal(currentFolder);
+        buildCreateDialModal(currentGroupId);
         modalShowEffect(createDialModalContent, createDialModal);
         return;
     }
@@ -1994,6 +1825,7 @@ window.addEventListener("mousedown", e => {
         return;
     }
 
+    console.log("classname:"+e.target.className);
     switch (e.target.className) {
         // todo: invert this
         case 'default-content':
@@ -2041,26 +1873,26 @@ window.addEventListener("mousedown", e => {
                     modalShowEffect(refreshAllModalContent, refreshAllModal);
                     break;
                 case 'delete':
-                    removeBookmark(targetTileHref);
+                    console.log("deleting "+ e.target);
+                    removeBookmark(targetTileId.split('-')[1]);
                     break;
                 case 'editFolder':
-                    //buildFolderModal(targetFolder, targetFolderName);
-                    editFolderModalName.value = targetFolderName;
-                    modalShowEffect(editFolderModalContent, editFolderModal);
+                    editFolderModalName.value = targetGroupName;
+                    modalShowEffect(editFolderModalContent, editGroupModal);
                     break;
                 case 'deleteFolder':
-                    deleteFolderModalName.textContent = targetFolderName;
-                    modalShowEffect(deleteFolderModalContent, deleteFolderModal);
+                    deleteFolderModalName.textContent = targetGroupName;
+                    modalShowEffect(deleteFolderModalContent, deleteGroupModal);
                     break;
                 case 'newDial':
                     // prevent default required to stop focus from leaving the modal input
                     e.preventDefault();
-                    buildCreateDialModal(currentFolder);
+                    buildCreateDialModal(currentGroup);
                     modalShowEffect(createDialModalContent, createDialModal);
                     break;
                 case 'newFolder':
                     e.preventDefault();
-                    createFolder();
+                    addGroupBtn();
                     break;
             }
             break;
@@ -2083,10 +1915,10 @@ window.addEventListener("keydown", event => {
 
 modalSave.addEventListener("click", saveBookmarkSettings);
 createDialModalSave.addEventListener("click", createDial);
-addFolderButton.addEventListener("click", createFolder);
-createFolderModalSave.addEventListener("click", saveFolder)
-editFolderModalSave.addEventListener("click", editFolder)
-deleteFolderModalSave.addEventListener("click", removeFolder);
+addGroupButton.addEventListener("click", addGroupBtn);
+createGroupModalSave.addEventListener("click", createGroup);
+editGroupModalSave.addEventListener("click", editGroup);
+deleteGroupModalSave.addEventListener("click", removeFolder);
 refreshAllModalSave.addEventListener("click", refreshAllThumbnails);
 
 for (let button of closeModal) {
@@ -2349,7 +2181,7 @@ function prepareExport() {
     };
 
     // Get bookmarks and folders within the speed dial folder
-    chrome.bookmarks.getSubTree(speedDialId).then(bookmarkTreeNodes => {
+    chrome.bookmarks.getSubTree(selectedGroupId).then(bookmarkTreeNodes => {
         function traverseBookmarks(nodes, parentId = null) {
             nodes.forEach(node => {
                 if (node.url) {
@@ -2440,7 +2272,7 @@ searchInput.addEventListener('input', function (e) {
 });
 
 function filterDials(searchTerm) {
-    const currentParent = currentFolder;
+    const currentParent = currentGroup;
     const dials = document.querySelectorAll(`[id="${currentParent}"] > .tile`);
 
     dials.forEach(dial => {
@@ -2531,16 +2363,16 @@ function importFromSD2(json) {
         // Create groups and bookmarks
         let groupPromises = groups.map(group => {
             if (group.id === 0) {
-                return Promise.resolve(speedDialId);
+                return Promise.resolve(selectedGroupId);
             } else {
                 return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
-                    const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
+                    const matchingGroups = existingGroups.filter(group => group.parentId === selectedGroupId);
                     if (matchingGroups.length > 0) {
                         return matchingGroups[0].id;
                     } else {
                         return chrome.bookmarks.create({
                             title: group.title,
-                            parentId: speedDialId
+                            parentId: selectedGroupId
                         }).then(node => node.id);
                     }
                 });
@@ -2593,16 +2425,16 @@ function importFromFVD(json) {
         // Create groups and bookmarks
         let groupPromises = groups.map(group => {
             if (group.id === 1) {
-                return Promise.resolve(speedDialId);
+                return Promise.resolve(selectedGroupId);
             } else {
                 return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
-                    const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
+                    const matchingGroups = existingGroups.filter(group => group.parentId === selectedGroupId);
                     if (matchingGroups.length > 0) {
                         return matchingGroups[0].id;
                     } else {
                         return chrome.bookmarks.create({
                             title: group.title,
-                            parentId: speedDialId
+                            parentId: selectedGroupId
                         }).then(node => node.id);
                     }
                 });
@@ -2659,13 +2491,13 @@ function importFromYASD(json) {
         // Create folders and get their IDs
         let folderPromises = yasdData.folders.sort((a, b) => a.index - b.index).map(folder => {
             return chrome.bookmarks.search({ title: folder.title }).then(existingFolders => {
-                const matchingFolders = existingFolders.filter(f => f.parentId === speedDialId);
+                const matchingFolders = existingFolders.filter(f => f.parentId === selectedGroupId);
                 if (matchingFolders.length > 0) {
                     return { oldId: folder.id, newId: matchingFolders[0].id };
                 } else {
                     return chrome.bookmarks.create({
                         title: folder.title,
-                        parentId: speedDialId
+                        parentId: selectedGroupId
                     }).then(node => {
                         return { oldId: folder.id, newId: node.id };
                     });
@@ -2681,7 +2513,7 @@ function importFromYASD(json) {
 
             // Create bookmarks using the new folder IDs
             let bookmarkPromises = yasdData.bookmarks.map(bookmark => {
-                let parentId = folderIdMap[bookmark.folderid] || speedDialId;
+                let parentId = folderIdMap[bookmark.folderid] || selectedGroupId;
                 return chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
                     let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
                     if (!existsInFolder) {
@@ -2737,20 +2569,20 @@ function dragenterHandler(ev) {
     if (ev.target.nodeType === 3) {
         if (ev.target.parentElement.classList.contains("folderTitle")) {
             // avoid repaints
-            if (currentFolder !== ev.target.parentElement.attributes.folderid.value) {
-                currentFolder = ev.target.parentElement.attributes.folderid.value;
-                showFolder(currentFolder)
+            if (currentGroup !== ev.target.parentElement.attributes.folderid.value) {
+                currentGroup = ev.target.parentElement.attributes.folderid.value;
+                showGroup(currentGroup)
             }
         }
     }
     else if (ev.target.classList.contains("folderTitle")) {
         // avoid repaints
         // todo replace style changes with class;
-        if (currentFolder !== ev.target.attributes.folderid.value) {
+        if (currentGroup !== ev.target.attributes.folderid.value) {
             ev.target.style.padding = "20px";
             ev.target.style.outline = "2px dashed white";
-            currentFolder = ev.target.attributes.folderid.value;
-            showFolder(currentFolder)
+            currentGroup = ev.target.attributes.folderid.value;
+            showGroup(currentGroup)
         }
     }
 }
@@ -2784,7 +2616,7 @@ function dewrap(str) {
     // unlike folder tabs, main dial container doesnt include the folder id
     // todo: cleanup
     if (str === "wrap") {
-        return speedDialId
+        return selectedGroupId
     } else {
         return str
     }
@@ -2805,13 +2637,13 @@ function onEndHandler(evt) {
             // sortable's position doesn't match the dom's drop target
             // this may happen if the tile is dragged over a sortable list but then ultimately dropped somewhere else
             // for example directly on the folder name, or directly onto the new dial button. so use the currentFolder as the target
-            toParentId = currentFolder ? currentFolder : speedDialId;
+            toParentId = currentGroup ? currentGroup : selectedGroupId;
         }
 
-        if (fromParentId === toParentId && fromParentId !== currentFolder) {
+        if (fromParentId === toParentId && fromParentId !== currentGroup) {
             // occurs when there is no sortable target -- for example dropping the dial onto the folder name
             // or some space of the page outside the sortable container element
-            toParentId = currentFolder ? currentFolder : speedDialId;
+            toParentId = currentGroup ? currentGroup : selectedGroupId;
         }
 
         // if the sibling's parent doesnt match the parent we are moving to discard this sibling
@@ -2831,62 +2663,30 @@ function onEndHandler(evt) {
             if (evt.clone.attributes.folderid) {
                 let id = evt.clone.attributes.folderid.value;
                 let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.attributes.folderid.value : null;
-                moveFolder(id, oldIndex, newIndex, newSiblingId)
+                moveGroup(id, oldIndex, newIndex, newSiblingId)
             }
         }
     }
 }
 
-const processRefresh = debounce(({ foldersOnly = false } = {}) => {
-    if (foldersOnly) {
-        buildFolderPages(speedDialId)
+// 进行页面刷新
+const processRefresh = debounce(({ groupsOnly = false } = {}) => {
+    if (groupsOnly) {
+        reBuildGroupPages()
     } else {
         // prevent page scroll on refresh
         // react where are you...
         scrollPos = bookmarksContainerParent.scrollTop;
         //noBookmarks.style.display = 'none';
-        addFolderButton.style.display = 'inline';
+        addGroupButton.style.display = 'inline';
 
         //bookmarksContainer.style.opacity = "0";
 
         //getBookmarks(speedDialId)
-        buildDialPages(speedDialId, currentFolder)
+        buildDialPages(currentGroupId)
     }
 }, 650, true);
 
-function getSpeedDialId() {
-    return new Promise((resolve, reject) => {
-        chrome.bookmarks.search({ title: 'Speed Dial' }).then(result => {
-            if (result) {
-                for (let bookmark of result) {
-                    if (!bookmark.url) {
-                        speedDialId = bookmark.id;
-                        break;
-                    }
-                }
-            }
-            if (speedDialId) {
-                chrome.bookmarks.getChildren(speedDialId).then(results => {
-                    for (let result of results) {
-                        if (!result.url && result.title) {
-                            folderIds.push(result.id);
-                        }
-                    }
-                })
-                resolve()
-            } else {
-                chrome.bookmarks.create({ title: 'Speed Dial' }).then(result => {
-                    speedDialId = result.id;
-                    resolve();
-                }, error => {
-                    reject(error);
-                });
-            }
-        }, error => {
-            reject(error)
-        });
-    });
-}
 
 // Preload the image before setting the background
 function preloadImage(url) {
@@ -2898,46 +2698,6 @@ function preloadImage(url) {
     });
 }
 
-/*
-// replaced by setBackgroundImages()
-function setBackgroundImage(thumb) {
-    const setImage = async (element) => {
-        if (element) {
-            try {
-                //await preloadImage(thumb.thumbnail);
-                // todo: use a solid color not this gradient shit failed experiment
-                element.style.backgroundImage = `url('${thumb.thumbnail}'), ${thumb.bgColor}`;
-                // unset the existing bg color
-                element.style.backgroundColor = "unset";
-            } catch (error) {
-                console.error('Error preloading image:', error);
-            }
-        }
-    };
-
-    const id = thumb.parentId + "-" + thumb.id;
-    let element = document.getElementById(id);
-
-    if (element) {
-        setImage(element);
-    } else {
-        const observer = new MutationObserver((mutations, obs) => {
-            element = document.getElementById(id);
-            if (element) {
-                setImage(element);
-                obs.disconnect();
-            }
-        });
-
-        const parentElement = document.getElementById(thumb.parentId);
-
-        observer.observe(parentElement, {
-            childList: true,
-            subtree: true
-        });
-    }
-}
-*/
 
 function setBackgroundImages(thumbnails) {
     const elementsToUpdate = [];
@@ -2989,8 +2749,9 @@ function batchApplyImages(elements) {
     });
 }
 
+// 获取消息
 function handleMessages(message) {
-    //console.log(message);
+    console.log(message);
     if (!message.target === 'newtab') {
         return
     }
@@ -2998,10 +2759,9 @@ function handleMessages(message) {
     if (message.data.refresh) {
         hideToast();
         processRefresh();
-    } else if(message.data.reloadFolders) {
+    } else if(message.data.reloadGroups) {
         hideToast();
-        processRefresh({ foldersOnly: true });
-
+        processRefresh({ groupsOnly: true });
     } else if(message.type === 'thumbBatch') {
         // lets update the backgroundImage with the thumbnail for each element using its id (parentId + id)
         // data.thumbs is an array of objects containing id, parentId, thumbnail and bgcolor
@@ -3023,48 +2783,26 @@ function onResize() {
 }
 
 function init() {
-
     document.querySelectorAll('[data-locale]').forEach(elem => {
         elem.innerText = chrome.i18n.getMessage(elem.dataset.locale)
     })
 
-    // init what used to be background work"
-    // build a thumbnail cache of url:thumbUrl pairs
-    // todo: slow; lets get the current tab first
-    chrome.storage.local.get('settings').then(result => {
+    new Promise(resolve => chrome.storage.local.get('settings', resolve))
+    .then(result => {
+        console.log(settings);
         if (result) {
             if (result.settings) {
                 settings = Object.assign({}, defaults, result.settings);
             } else {
                 settings = defaults;
             }
-            /*
-            const entries = Object.entries(result);
-            for (let e of entries) {
-                //console.log(e);
-                // todo: filter folder ids
-                if (e[0] !== "settings" && e[1].thumbnails) {
-                    let index = e[1].thumbIndex;
-                    cache[e[0]] = [e[1].thumbnails[index], e[1].bgColor];
-                }
-            }
-            */
         }
 
-        getSpeedDialId().then(() => {
-            if (settings.rememberFolder && settings.currentFolder) {
-                currentFolder = settings.currentFolder;
-                //todo: reset to home folder when setting turned off
-            } else {
-                currentFolder = speedDialId;
-            }
-            applySettings().then(() => buildDialPages(speedDialId, currentFolder));
-        }, error => {
-            console.log(error);
-        });
+        currentGroupId = settings.currentGroupId;
+        selectedGroupId = settings.currentGroupId;
+        applySettings()
+            .then(() => buildDialPages(selectedGroupId));
     });
-
-
 
     sidenav.style.display = "flex";
 

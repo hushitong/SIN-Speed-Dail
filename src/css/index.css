@@ -222,6 +222,8 @@ h1 {
 
 .activeFolder {
     opacity: 1;
+    font-size: 20px;
+    font-weight: 600;
 }
 
 #deleteFolderModalName {
