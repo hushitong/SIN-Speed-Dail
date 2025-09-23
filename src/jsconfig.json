@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "checkJs": true,   // ✅ 启用 JS 文件的类型检查
+    "lib": ["es2022", "dom", "esnext.intl"] // ✅ 包含最新的 ECMAScript 和 DOM 库
+  },
+  "exclude": [
+    "node_modules",   // 忽略依赖
+    "**/dist"         // 忽略打包输出目录（可选）
+  ]
+}

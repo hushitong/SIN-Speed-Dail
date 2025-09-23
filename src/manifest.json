@@ -43,5 +43,15 @@
       "id": "yet_another_speed_dial@conceptualspace.net",
       "strict_min_version": "59.0"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/*.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

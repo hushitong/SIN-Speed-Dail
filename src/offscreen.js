@@ -1,6 +1,6 @@
 chrome.runtime.onMessage.addListener(handleMessages);
 
-const imageRatio = 1.54;
+const imageRatio = 1.54;    // // 书签缩略图的宽高比，通常为 16:10 或 16:9 的中间值。
 
 function offscreenCanvasShim(w=1, h=1) {
     try {
