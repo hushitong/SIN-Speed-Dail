@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "Bouton Ajouter un dossier"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "Êtes-vous sûr de vouloir supprimer définitivement ce dossier?"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "Créer le dossier"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "Éditer"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "Modifier le dossier..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "Nouveau Speed Dial..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "Nouveau Dossier..."
   },
   "newInstall1": {

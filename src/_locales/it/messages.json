@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "Aggiungi cartella Button"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "Sei sicuro di voler rimuovere definitivamente questa cartella?"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "Crea cartella"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "Modificare"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "Modifica Cartella..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "Nuova Selezione Rapida..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "Nuovo Cartella..."
   },
   "newInstall1": {

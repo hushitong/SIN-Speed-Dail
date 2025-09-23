@@ -7,10 +7,10 @@
 // speed dial
 const bookmarksContainerParent = document.getElementById('tileContainer');
 const bookmarksContainer = bookmarksContainerParent
-const foldersContainer = document.getElementById('folders');
-const addGroupButton = document.getElementById('addFolderButton');
+const groupsContainer = document.getElementById('groups');
+const addGroupButton = document.getElementById('addgroupButton');
 const menu = document.getElementById('contextMenu');
-const folderMenu = document.getElementById('folderMenu');
+const groupMenu = document.getElementById('groupMenu');
 const settingsMenu = document.getElementById('settingsMenu');
 const modal = document.getElementById('tileModal');
 const modalContent = document.getElementById('tileModalContent');
@@ -20,20 +20,20 @@ const createDialModalContent = document.getElementById('createDialModalContent')
 const createDialModalURL = document.getElementById('createDialModalURL');
 const createDialModalSave = document.getElementById('createDialModalSave');
 
-const createGroupModal = document.getElementById('createFolderModal');
-const createFolderModalContent = document.getElementById('createFolderModalContent');
-const createFolderModalName = document.getElementById('createFolderModalName');
-const createGroupModalSave = document.getElementById('createFolderModalSave');
+const createGroupModal = document.getElementById('creategroupModal');
+const createGroupModalContent = document.getElementById('creategroupModalContent');
+const createGroupModalName = document.getElementById('creategroupModalName');
+const createGroupModalSave = document.getElementById('creategroupModalSave');
 
-const editGroupModal = document.getElementById('editFolderModal');
-const editFolderModalContent = document.getElementById('editFolderModalContent');
-const editFolderModalName = document.getElementById('editFolderModalName');
-const editGroupModalSave = document.getElementById('editFolderModalSave');
+const editGroupModal = document.getElementById('editgroupModal');
+const editgroupModalContent = document.getElementById('editgroupModalContent');
+const editgroupModalName = document.getElementById('editgroupModalName');
+const editGroupModalSave = document.getElementById('editgroupModalSave');
 
-const deleteGroupModal = document.getElementById('deleteFolderModal');
-const deleteFolderModalContent = document.getElementById('deleteFolderModalContent');
-const deleteFolderModalName = document.getElementById('deleteFolderModalName');
-const deleteGroupModalSave = document.getElementById('deleteFolderModalSave');
+const deleteGroupModal = document.getElementById('deletegroupModal');
+const deletegroupModalContent = document.getElementById('deletegroupModalContent');
+const deletegroupModalName = document.getElementById('deletegroupModalName');
+const deleteGroupModalSave = document.getElementById('deletegroupModalSave');
 
 const importExportModal = document.getElementById('importExportModal');
 const importExportModalContent = document.getElementById('importExportModalContent');
@@ -76,10 +76,10 @@ const wallPaperEnabled = document.getElementById("wallpaper");
 const previewContainer = document.getElementById("previewContainer");
 const backgroundColorContainer = document.getElementById("backgroundColorContainer");
 const largeTilesInput = document.getElementById("largeTiles");
-const rememberFolderInput = document.getElementById("rememberFolder");
+const rememberGroupInput = document.getElementById("remembergroup");
 const showTitlesInput = document.getElementById("showTitles");
 const showCreateDialInput = document.getElementById("showCreateDial");
-const showFoldersInput = document.getElementById("showFolders");
+const showgroupsInput = document.getElementById("showgroups");
 const showClockInput = document.getElementById("showClock");
 const showSettingsBtnInput = document.getElementById("showSettingsBtn");
 const maxColsInput = document.getElementById("maxcols");
@@ -114,7 +114,7 @@ let targetNode = null;
 let targetGroupId = null;
 let targetGroupName = null;
 let targetGroupLink = null;
-// let folders = [];
+// let groups = [];
 let data = {};
 let settings = null;
 let selectedGroupId = null;
@@ -123,7 +123,7 @@ let scrollPos = 0;
 let homeGroupTitle = chrome.i18n.getMessage('home');
 let windowSize = null;
 let containerSize = null;
-let layoutFolder = false;
+let layoutgroup = false;
 let boxes = [];
 let hourCycle = 'h12';
 const locale = navigator.language;
@@ -131,7 +131,7 @@ const imageRatio = 1.54;
 const helpUrl = 'https://conceptualspace.github.io/yet-another-speed-dial/';
 let isToastVisible = false;
 
-let folderIds = [];
+let groupIds = [];
 
 const homeGroup = {
     id: 'home',
@@ -145,10 +145,10 @@ let defaults = {
     wallpaperSrc: 'img/bg.jpg',
     backgroundColor: '#111111',
     largeTiles: true,
-    rememberFolder: false,
+    rememberGroup: false,
     showTitles: true,
     showAddSite: true,
-    showFolders: true,
+    showgroups: true,
     showSettingsBtn: true,
     showClock: true,
     maxCols: '100',
@@ -184,13 +184,13 @@ function displayClock() {
 
 displayClock();
 
-function getBookmarks(folderId) {
-    chrome.bookmarks.getChildren(folderId).then(result => {
-        if (folderId === selectedGroupId && !result.length && settings.showFolders) {
+function getBookmarks(groupId) {
+    chrome.bookmarks.getChildren(groupId).then(result => {
+        if (groupId === selectedGroupId && !result.length && settings.showgroups) {
             //noBookmarks.style.display = 'block';
             addGroupButton.style.display = 'none';
         }
-        printBookmarks(result, folderId)
+        printBookmarksByGroupId(result, groupId)
     }, error => {
         console.log(error);
     });
@@ -223,11 +223,11 @@ async function buildDialPages(selectedGroupId) {
     console.log(data);
     const groups = data.groups;
 
-    if(groups.length <1){
+    if (groups.length < 1) {
         // 把主页分组添加到分组列表的开头
         groups.unshift(homeGroup);
 
-        saveData({ groups,settings });
+        saveData({ groups, settings });
     }
 
     // 排序分组
@@ -241,33 +241,33 @@ async function buildDialPages(selectedGroupId) {
     }
 
     // clear any existing data so we can refresh
-    foldersContainer.innerHTML = '';
+    groupsContainer.innerHTML = '';
 
-    // Build folder header links
+    // Build group header links
     if (groups && groups.length >= 1) {
         for (let group of groups) {
             groupLink(group.title, group.id);
         }
     }
 
-    // Process the current folder's children first
+    // Process the current group's children first
     const currentBookmarks = data.bookmarks.filter(b => b.groupId === selectedGroupId);
-    await printBookmarks(currentBookmarks, selectedGroupId);
+    await printBookmarksByGroupId(currentBookmarks, selectedGroupId);
 
     // 在排除当前分组后，处理其他分组的书签，主要是添加分组容器并且在容器内显示+号按钮
     if (groups.length > 1) {
         for (let group of groups) {
             if (group.id !== selectedGroupId) {
-                const children = data.bookmarks.filter(b => b.groupId === group.id);
-                await printBookmarks(children, group.id);
+                const bookmarks = data.bookmarks.filter(b => b.groupId === group.id);
+                await printBookmarksByGroupId(bookmarks, group.id);
             }
         }
     }
 }
 
-// 页面刷新：仅刷新分组标题
-async function reBuildGroupPages() {
-    data = await getData();
+// 页面刷新：读取数据，重建分组标题
+async function reBuildGroupPages(inData = null) {
+    if (!inData) data = await getData();
     const bookmarks = data.bookmarks || [];
 
     if (!bookmarks.length) {
@@ -279,9 +279,9 @@ async function reBuildGroupPages() {
     const groups = data.groups || [];
 
     // clear any existing data so we can refresh
-    foldersContainer.innerHTML = '';
+    groupsContainer.innerHTML = '';
 
-    // Build folder header links
+    // Build group header links
     if (groups && groups.length > 1) {
         for (let group of groups) {
             groupLink(group.title, group.id);
@@ -297,13 +297,13 @@ async function removeBookmark(id) {
 
     // 过滤掉要删除的书签
     const updatedBookmarks = data.bookmarks.filter(bookmark => bookmark.id !== id);
-    
+
     // 保存更新后的书签数组
     return new Promise((resolve) => {
         chrome.storage.local.set({
             bookmarks: updatedBookmarks
         }, () => {
-            chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId:currentGroupId,changeType:'Remove' } });
+            chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId: currentGroupId, changeType: 'Remove' } });
             resolve(true);
         });
     });
@@ -311,7 +311,7 @@ async function removeBookmark(id) {
 
 // 移动分组顺序
 function moveGroup(id, oldIndex, newIndex, newSiblingId) {
-    console.log("moveFolder:", id, oldIndex, newIndex, newSiblingId);
+    console.log("movegroup:", id, oldIndex, newIndex, newSiblingId);
     let options = {};
 
     function move(id, options) {
@@ -404,6 +404,7 @@ function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSibli
 }
 
 // 显示某个分组
+// 仅修改样式，不重新加载数据再绘制
 function showGroup(groupId) {
     hideSettings();
     let groups = document.getElementsByClassName('container');
@@ -411,10 +412,9 @@ function showGroup(groupId) {
         if (group.id === groupId) {
             group.style.display = "flex"
             group.style.opacity = "0";
-            layoutFolder = true;
-            // transition between folders. todo more elegant solution
+            layoutgroup = true;
+            // transition between groups. todo more elegant solution
             setTimeout(function () {
-                //layoutFolder = id;
                 group.style.opacity = "1";
                 animate()
             }, 20);
@@ -423,12 +423,12 @@ function showGroup(groupId) {
         }
     }
     // style the active tab
-    let folderTitles = document.getElementsByClassName('folderTitle');
-    for (let title of folderTitles) {
-        if (title.attributes.folderid.value === groupId) {
-            title.classList.add('activeFolder');
+    let groupTitles = document.getElementsByClassName('groupTitle');
+    for (let title of groupTitles) {
+        if (title.attributes.groupid.value === groupId) {
+            title.classList.add('activegroup');
         } else {
-            title.classList.remove('activeFolder');
+            title.classList.remove('activegroup');
         }
     }
 }
@@ -442,24 +442,33 @@ function getThumbs(bookmarkUrl) {
         });
 }
 
-function printFolderBookmarks() {
-    for (let folder of folders) {
-        getBookmarks(folder)
+function refreshThumbnails(url, tileid) {
+    // the div id is "groupid-boookmarkid"
+    let parentId = tileid.split("-")[0];
+    let id = tileid.split("-")[1];
+
+    showToast(' Capturing images...')
+    chrome.runtime.sendMessage({ target: 'background', type: 'refreshThumbs', data: { url, id, parentId } });
+}
+
+function printgroupBookmarks() {
+    for (let group of groups) {
+        getBookmarks(group)
     }
 }
 
-// 生成分组链接
+// 生成分组链接，并设置样式
 function groupLink(groupTitle, groupId) {
     let a = document.createElement('a');
     if (groupId === homeGroup.id) {
-        a.id = "homeFolderLink";
+        a.id = "homegroupLink";
     }
-    
-    a.classList.add('folderTitle');
-    if(groupId === currentGroupId){
-        a.classList.add('activeFolder');
+
+    a.classList.add('groupTitle');
+    if (groupId === currentGroupId) {
+        a.classList.add('activegroup');
     }
-    a.setAttribute('folderId', groupId);
+    a.setAttribute('groupId', groupId);
     let linkText = document.createTextNode(groupTitle);
     a.appendChild(linkText);
 
@@ -474,36 +483,43 @@ function groupLink(groupTitle, groupId) {
         chrome.storage.local.set({ settings });
     };
 
-    // todo: allow dropping directly on folder title?
+    // todo: allow dropping directly on group title?
     a.ondragenter = dragenterHandler;
     a.ondragleave = dragleaveHandler;
 
-    foldersContainer.appendChild(a);
+    groupsContainer.appendChild(a);
 }
 
+// 显示添加分组模态框
 function addGroupBtn() {
+    console.log("addgroupBtn");
     hideSettings();
-    createFolderModalName.value = '';
-    createFolderModalName.focus();
+    createGroupModalName.value = '';
+    createGroupModalName.focus();
     createGroupModal.style.transform = "translateX(0%)";
     createGroupModal.style.opacity = "1";
-    createFolderModalContent.style.transform = "scale(1)";
-    createFolderModalContent.style.opacity = "1";
+    createGroupModalContent.style.transform = "scale(1)";
+    createGroupModalContent.style.opacity = "1";
 }
 
+// 添加分组
 function createGroup() {
-    let name = createFolderModalName.value.trim();
+    let name = createGroupModalName.value.trim();
     const orgGroupCount = data.groups.length;
-    data.groups.push({ id: generateId(), title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
+    const id = "G." + generateId();
+    data.groups.push({ id: id, title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
 
     const groups = data.groups;
     saveData({ groups }).then(() => {
-        hideModals()
+        hideModals();
+        reBuildGroupPages();
+        printBookmarksByGroupId([], id);
     });
 }
 
+//修改分组
 function editGroup() {
-    let title = editFolderModalName.value.trim();
+    let title = editgroupModalName.value.trim();
     data.groups.filter(g => g.id === targetGroupId)[0].title = title;
 
     const groups = data.groups;
@@ -514,36 +530,28 @@ function editGroup() {
     });
 }
 
-function refreshThumbnails(url, tileid) {
-    //tabMessagePort.postMessage({refreshThumbs: true, url});
-    // the div id is "folderid-boookmarkid"
-    let parentId = tileid.split("-")[0];
-    let id = tileid.split("-")[1];
+// 移除分组
+function removeGroup() {
+    let updateGroups = data.groups.filter(g => g.id !== targetGroupId);
+    let updateBookmarks = data.bookmarks.filter(b => b.groupId !== targetGroupId);
 
-    showToast(' Capturing images...')
-    chrome.runtime.sendMessage({ target: 'background', type: 'refreshThumbs', data: { url, id, parentId } });
-}
+    data.groups = updateGroups;
+    data.bookmarks = updateBookmarks;
 
-function removeFolder() {
-    chrome.bookmarks.removeTree(targetGroupId).then(() => {
+    saveData({ groups: updateGroups, bookmarks: updateBookmarks }).then(() => {
         hideModals();
-        targetGroupLink?.remove();
-        folders.splice(folders.indexOf(targetGroupId), 1);
-        if (!folders.length) {
-            //document.getElementById('homeFolderLink').remove();
-            // todo: better manager this state
+        showToast(" Group removed");
+        if (currentGroupId === targetGroupId) {
+            currentGroupId = homeGroup.id;
+            settings.currentGroupId = homeGroup.id;
+            chrome.storage.local.set({ settings });
+            reBuildGroupPages();
+            printBookmarksByGroupId(data.bookmarks.filter(b => b.groupId === homeGroup.id), homeGroup.id);
+        } else {
+            reBuildGroupPages();
         }
-
-        if (currentGroup === targetGroupId) {
-            currentGroup = selectedGroupId;;
-            bookmarksContainerParent.scrollTop = scrollPos;
-            showGroup(selectedGroupId);
-            settings.currentFolder = selectedGroupId;
-            chrome.storage.local.set({ settings })
-        }
-
-        // todo: clean up this node or do it on refresh
-        // document.getElementById(targetFolder).remove();
+    }).catch(err => {
+        console.log("removeGroup() ERR " + err);
     });
 }
 
@@ -570,7 +578,6 @@ function refreshAllThumbnails() {
                     bookmarks.push({ url: child.url, id: child.id, parentId: child.parentId });
                 }
             }
-            //tabMessagePort.postMessage({refreshAll: true, urls});
             chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
             showToast(' Capturing images...')
         }
@@ -580,48 +587,30 @@ function refreshAllThumbnails() {
 }
 
 
-// assumes 'bookmarks' param is content of a folder (from getBookmarks)
-function batchInsert(parent, fragment, batchSize = 50, onComplete) {
-    const nodes = Array.from(fragment.childNodes);
-    let index = 0;
 
-    function insertBatch() {
-        let slice = nodes.slice(index, index + batchSize);
-        parent.append(...slice);
-        index += batchSize;
-
-        if (index < nodes.length) {
-            requestAnimationFrame(insertBatch);
-        } else if (onComplete) {
-            requestAnimationFrame(onComplete); // Ensures it runs after DOM updates
-        }
-    }
-
-    insertBatch();
-}
 
 // 显示初始设置界面
 async function printNewSetup() {
     let fragment = document.createDocumentFragment();
 
     // Ensure the container exists
-    let folderContainerEl = document.getElementById(selectedGroupId);
+    let groupContainerEl = document.getElementById(selectedGroupId);
     console.log("new install，@speedDialId:", selectedGroupId);
-    if (!folderContainerEl) {
-        folderContainerEl = document.createElement('div');
-        folderContainerEl.id = selectedGroupId;
-        folderContainerEl.classList.add('container');
-        folderContainerEl.style.display = currentGroupId === selectedGroupId ? 'flex' : 'none';
-        folderContainerEl.style.opacity = "0";
+    if (!groupContainerEl) {
+        groupContainerEl = document.createElement('div');
+        groupContainerEl.id = selectedGroupId;
+        groupContainerEl.classList.add('container');
+        groupContainerEl.style.display = currentGroupId === selectedGroupId ? 'flex' : 'none';
+        groupContainerEl.style.opacity = "0";
 
         if (currentGroupId === selectedGroupId) {
             setTimeout(() => {
-                folderContainerEl.style.opacity = "1";
+                groupContainerEl.style.opacity = "1";
                 animate();
             }, 20);
-            document.querySelector(`[folderid="${currentGroupId}"]`)?.classList.add('activeFolder');
+            document.querySelector(`[groupid="${currentGroupId}"]`)?.classList.add('activegroup');
         }
-        bookmarksContainerParent.append(folderContainerEl);
+        bookmarksContainerParent.append(groupContainerEl);
     }
 
     const noBookmarksDiv = document.createElement('div');
@@ -646,12 +635,13 @@ async function printNewSetup() {
     fragment.appendChild(noBookmarksDiv);
 
     // Optimize container update using batch insert
-    folderContainerEl.textContent = ''; // Clears old content efficiently
-    folderContainerEl.append(fragment);
+    groupContainerEl.textContent = ''; // Clears old content efficiently
+    groupContainerEl.append(fragment);
 
     bookmarksContainerParent.scrollTop = scrollPos;
 }
 
+// 创建添加书签按钮+
 function createNewDialButton(groupId) {
     let aNewDial = document.createElement('a');
     aNewDial.classList.add('tile', 'createDial');
@@ -670,9 +660,18 @@ function createNewDialButton(groupId) {
     aNewDial.appendChild(main);
 
     return aNewDial;
+
+    // 最终生成的数据 example:
+    // <a class="tile createDial" style="transform: matrix(1, 0, 0, 1, 0, 0);">
+    //     <div class="tile-main">
+    //         <div class="tile-content createDial-content"></div>
+    //     </div>
+    // </a>
 }
 
-async function printBookmarks(bookmarks, selectedGroupId) {
+// 实际作用就是根据 groupId 和 bookmarks 数组，生成指定分组的书签列表的 DOM 节点并插入到页面中
+// selectedGroupId 是要显示的分组，bookmarks 是该分组的书签数组
+async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
     console.log("printBookmarks:", bookmarks, selectedGroupId);
     let fragment = document.createDocumentFragment();
 
@@ -680,7 +679,7 @@ async function printBookmarks(bookmarks, selectedGroupId) {
     //let urls = bookmarks.filter(b => b.url?.startsWith("http")).map(b => b.url);
 
     // lets message the background script to do it  
-    
+
     // reverse the bookmarks if settings.defaultSort === "first")
     if (settings.defaultSort === "first") {
         bookmarks = bookmarks.reverse();
@@ -690,7 +689,7 @@ async function printBookmarks(bookmarks, selectedGroupId) {
 
     // Process bookmarks
     if (bookmarks) {
-        for (let bookmark of bookmarks) {
+        for (let bookmark of bookmarks.filter(b => b.groupId === selectedGroupId)) {
             console.log("processing bookmark:", bookmark);
             // if (!bookmark.url && bookmark.title && bookmark.groupId === selectedGroupId) continue;
 
@@ -704,15 +703,13 @@ async function printBookmarks(bookmarks, selectedGroupId) {
                 a.href = bookmark.url;
                 a.setAttribute('data-id', bookmark.id);
 
-                let main = document.createElement('div');
-                main.classList.add('tile-main');
+                let tileMain = document.createElement('div');
+                tileMain.classList.add('tile-main');
 
                 let content = document.createElement('div');
                 content.setAttribute('id', bookmark.groupId + "-" + bookmark.id);
                 content.classList.add('tile-content');
-                //content.style.backgroundImage = thumbBg ? `url('${thumbUrl}'), ${thumbBg}` : '';
-                //content.style.backgroundColor = thumbBg ? '' : 'rgba(255, 255, 255, 0.5)';
-                content.style.backgroundColor =  'rgba(255, 255, 255, 0.5)';
+                content.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 
                 let title = document.createElement('div');
                 title.classList.add('tile-title');
@@ -721,8 +718,19 @@ async function printBookmarks(bookmarks, selectedGroupId) {
                 }
                 title.textContent = bookmark.title;
 
-                main.append(content, title);
-                a.appendChild(main);
+                tileMain.append(content, title);
+                a.appendChild(tileMain);
+
+                // 最终 a 生成的数据 example:
+                // <a class="tile" href="https://baidu.com" data-id="mfv2c2mnld3jz" style="transform: matrix(1, 0, 0, 1, 0, 0);">
+                //     <div class="tile-main">
+                //         <div id="mfv1du48juh4b-mfv2c2mnld3jz" class="tile-content"
+                //             style="background-color: rgba(255, 255, 255, 0.5);">
+                //         </div>
+                //         <div class="tile-title">百度</div>
+                //     </div>
+                // </a>
+
                 fragment.appendChild(a);
             }
         }
@@ -736,28 +744,30 @@ async function printBookmarks(bookmarks, selectedGroupId) {
         fragment.insertBefore(newDialButton, fragment.firstChild);
     }
 
-    // Ensure the container exists
-    let folderContainerEl = document.getElementById(selectedGroupId);
-    if (!folderContainerEl) {
-        folderContainerEl = document.createElement('div');
-        folderContainerEl.id = selectedGroupId;
-        folderContainerEl.classList.add('container');
-        folderContainerEl.style.display = currentGroupId === selectedGroupId ? 'flex' : 'none';
-        //folderContainerEl.style.opacity = settings.rememberFolder && currentFolder === parentId ? '0' : '1';
-        folderContainerEl.style.opacity = "0";
+    // 假如原分组容器不存在，构建指定分组容器，用于放置书签
+    let groupContainerEl = document.getElementById(selectedGroupId);
+    if (!groupContainerEl) {
+        groupContainerEl = document.createElement('div');
+        groupContainerEl.id = selectedGroupId;
+        groupContainerEl.classList.add('container');
+        groupContainerEl.style.display = 'none';
+        groupContainerEl.style.opacity = "0";
 
         if (currentGroupId === selectedGroupId) {
+            groupContainerEl.style.display = "flex"
             setTimeout(() => {
-                folderContainerEl.style.opacity = "1";
+                groupContainerEl.style.opacity = "1";
                 animate();
             }, 20);
-            document.querySelector(`[folderid="${currentGroupId}"]`)?.classList.add('activeFolder');
+            // document.querySelector(`[groupid="${currentGroupId}"]`)?.classList.add('activegroup'); //需要在这里设置当前分组为激活状态吗
         }
-        bookmarksContainerParent.append(folderContainerEl);
+        bookmarksContainerParent.append(groupContainerEl);
+    } else {
+        groupContainerEl.innerHTML = '';
     }
 
     // Sortable configuration
-    new Sortable(folderContainerEl, {
+    new Sortable(groupContainerEl, {
         group: 'shared',
         animation: 160,
         ghostClass: 'selected',
@@ -769,9 +779,27 @@ async function printBookmarks(bookmarks, selectedGroupId) {
         onEnd: onEndHandler
     });
 
-    // Optimize container update using batch insert
-    folderContainerEl.textContent = ''; // todo: is this even required here? would innerHTML = '' be preferable?
-    batchInsert(folderContainerEl, fragment, 50)
+    batchInsert(groupContainerEl, fragment, 50)
+
+    // 分批插入已优化一次性大量 DOM 节点插入的性能
+    function batchInsert(parent, fragment, batchSize = 50, onComplete) {
+        const nodes = Array.from(fragment.childNodes);
+        let index = 0;
+
+        function insertBatch() {
+            let slice = nodes.slice(index, index + batchSize);
+            parent.append(...slice);
+            index += batchSize;
+
+            if (index < nodes.length) {
+                requestAnimationFrame(insertBatch);
+            } else if (onComplete) {
+                requestAnimationFrame(onComplete); // Ensures it runs after DOM updates
+            }
+        }
+
+        insertBatch();
+    }
 
     bookmarksContainerParent.scrollTop = scrollPos;
 }
@@ -792,7 +820,7 @@ function showContextMenu(el, top, left) {
 }
 
 function hideMenus() {
-    let menus = [menu, settingsMenu, folderMenu]
+    let menus = [menu, settingsMenu, groupMenu]
     for (let el of menus) {
         el.style.visibility = "hidden";
         el.style.opacity = "0";
@@ -811,7 +839,7 @@ function hideSettings() {
 
 function hideModals() {
     let modals = [modal, createDialModal, createGroupModal, editGroupModal, deleteGroupModal, refreshAllModal, importExportModal];
-    let modalContents = [modalContent, createDialModalContent, createFolderModalContent, editFolderModalContent, deleteFolderModalContent, refreshAllModalContent, importExportModalContent]
+    let modalContents = [modalContent, createDialModalContent, createGroupModalContent, editgroupModalContent, deletegroupModalContent, refreshAllModalContent, importExportModalContent]
 
     for (let button of document.getElementsByTagName('button')) {
         button.blur();
@@ -872,6 +900,7 @@ function showToast(message) {
     }
 }
 
+// 显示添加书签模态框
 function buildCreateDialModal(parentId) {
     createDialModalURL.value = '';
     createDialModalURL.parentId = parentId ? parentId : selectedGroupId;
@@ -951,7 +980,7 @@ async function buildModal(url, title) {
                     for (let node of imageNodes) {
                         // div with order "2" is the one being displayed by the carousel
                         if (node.style.order === '2') {
-                            
+
                             // sometimes the carousel puts images inside a <figure class="fc-image"> elem
                             if (node.children[0].className === "fc-image") {
                                 //selectedImageSrc = node.children[0].children[0].src;
@@ -988,7 +1017,7 @@ async function buildModal(url, title) {
                     for (let node of imageNodes) {
                         // div with order "2" is the one being displayed by the carousel
                         if (node.style.order === '2') {
-                            
+
                             // sometimes the carousel puts images inside a <figure class="fc-image"> elem
                             if (node.children[0].className === "fc-image") {
                                 //selectedImageSrc = node.children[0].children[0].src;
@@ -1025,26 +1054,27 @@ function rectifyUrl(url) {
 function createDial() {
     console.log('createDial', createDialModalURL);
     let url = rectifyUrl(createDialModalURL.value.trim());
-    // todo: 真正使用标题而
+    // todo: 真正使用标题而不是 URL 作为标题
     let title = url;
     saveNewBookmark(currentGroupId, url, title).then(_ => {
         hideModals();
-        showToast(' Capturing images...')
-        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId:currentGroupId,changeType:'Add' } });
+        showToast(' Capturing images...');
+         console.log('createDial sendMessage');
+        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId: currentGroupId, changeType: 'Add' } });
     });
 }
 
 // 保存新书签
 async function saveNewBookmark(groupId, url, title) {
     if (!url || !title) return;
-    
+
     const data = await getData();
     // 获取当前分组的最大位置
     const groupBookmarks = data.bookmarks.filter(b => b.groupId === groupId);
-    const maxPosition = groupBookmarks.length > 0 
-        ? Math.max(...groupBookmarks.map(b => b.position || 0)) 
+    const maxPosition = groupBookmarks.length > 0
+        ? Math.max(...groupBookmarks.map(b => b.position || 0))
         : 0;
-    
+
     const newBookmark = {
         id: generateId(),
         groupId: groupId,
@@ -1055,21 +1085,24 @@ async function saveNewBookmark(groupId, url, title) {
         visits: 0,
         createtime: new Date().toISOString()
     };
-    
+
     data.bookmarks.push(newBookmark);
     await saveData(data);
 }
 
 // 生成唯一ID
 function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    return crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
 }
+// function generateId() {
+//     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+// }
 
 function openAllTabs() {
-    let folder = currentGroup ? document.getElementById(currentGroup) : document.getElementById('wrap');
+    let group = currentGroup ? document.getElementById(currentGroup) : document.getElementById('wrap');
 
-    if (folder) {
-        let dials = [...folder.getElementsByClassName('tile')];
+    if (group) {
+        let dials = [...group.getElementsByClassName('tile')];
 
         dials?.forEach(dial => {
             if (dial.href) {
@@ -1096,9 +1129,9 @@ function offscreenCanvasShim(w, h) {
 
 function colorsAreSimilar(color1, color2, tolerance = 2) {
     return Math.abs(color1[0] - color2[0]) <= tolerance &&
-           Math.abs(color1[1] - color2[1]) <= tolerance &&
-           Math.abs(color1[2] - color2[2]) <= tolerance &&
-           Math.abs(color1[3] - color2[3]) <= tolerance;
+        Math.abs(color1[1] - color2[1]) <= tolerance &&
+        Math.abs(color1[2] - color2[2]) <= tolerance &&
+        Math.abs(color1[3] - color2[3]) <= tolerance;
 }
 
 // calculate the bg color of a given image. returns rgba array [r, g, b, a]
@@ -1170,12 +1203,12 @@ function getBgColor(img) {
             let keyColor = key.split(',').map(Number);
             return colorsAreSimilar(color, keyColor);
         });
-    
+
         if (similarColorKey && similarColorKey !== colorKey) {
             colorCounts[similarColorKey] += colorCounts[colorKey];
             delete colorCounts[colorKey];
         }
-    
+
         if (colorCounts[similarColorKey || colorKey] > maxCount) {
             maxCount = colorCounts[similarColorKey || colorKey];
             mostCommonColor = color;
@@ -1358,7 +1391,7 @@ function saveBookmarkSettings() {
 
 // todo: why did i debounce animate but not layout? (because we want tiles to move immediately as manually resizing window)
 function layout(force = false) {
-    if (force || layoutFolder || containerSize !== getComputedStyle(bookmarksContainer).maxWidth || windowSize !== window.innerWidth) {
+    if (force || layoutgroup || containerSize !== getComputedStyle(bookmarksContainer).maxWidth || windowSize !== window.innerWidth) {
         windowSize = window.innerWidth;
         containerSize = getComputedStyle(bookmarksContainer).maxWidth;
 
@@ -1369,7 +1402,7 @@ function layout(force = false) {
         // batch reads
         for (let i = 0; i < boxes.length; i++) {
             let box = boxes[i];
-            positions[i] = { 
+            positions[i] = {
                 node: box.node,
                 x: box.node.offsetLeft,
                 y: box.node.offsetTop,
@@ -1391,14 +1424,14 @@ function layout(force = false) {
             boxes[i].y = box.y;
         }
 
-        // layoutFolder true on folder open -- zero duration because we are just setting the positions of the dials, so whenever
+        // layoutgroup true on group open -- zero duration because we are just setting the positions of the dials, so whenever
         // a resize occurs the animation will start from the right position
         if (nodesToAnimate.length > 0 || force) {
-            let duration = layoutFolder ? 0 : 0.7;
+            let duration = layoutgroup ? 0 : 0.7;
             TweenMax.staggerTo(nodesToAnimate, duration, { x: 0, y: 0, stagger: { amount: 0.2 }, ease });
         }
 
-        layoutFolder = false;
+        layoutgroup = false;
     }
 }
 
@@ -1415,32 +1448,32 @@ function ease(progress) {
 
 const animate = debounce(() => {
     requestAnimationFrame(() => { // Use requestAnimationFrame for smoother updates
-    // let currentParent;
-    // if (currentGroup) {
-    //     currentParent = currentGroup
-    // }
-    const nodes = document.querySelectorAll(`[id="${selectedGroupId}"] > .tile`);
-    const total = nodes.length;
+        // let currentParent;
+        // if (currentGroup) {
+        //     currentParent = currentGroup
+        // }
+        const nodes = document.querySelectorAll(`[id="${selectedGroupId}"] > .tile`);
+        const total = nodes.length;
 
-    if (!nodes.length) return;
-    TweenMax.set(nodes, { lazy: false, x: "+=0" }); // maybe lazy doesnt help, cant tell
+        if (!nodes.length) return;
+        TweenMax.set(nodes, { lazy: false, x: "+=0" }); // maybe lazy doesnt help, cant tell
 
-    const nodePositions = [];
-    for (let i = 0; i < total; i++) {
-        let node = nodes[i];
-        nodePositions.push({
-            node,
-            transform: node._gsTransform,
-            x: node.offsetLeft,
-            y: node.offsetTop
-        });
-    }
+        const nodePositions = [];
+        for (let i = 0; i < total; i++) {
+            let node = nodes[i];
+            nodePositions.push({
+                node,
+                transform: node._gsTransform,
+                x: node.offsetLeft,
+                y: node.offsetTop
+            });
+        }
 
-    for (let i = 0; i < total; i++) {
-        boxes[i] = nodePositions[i];
-    }
+        for (let i = 0; i < total; i++) {
+            boxes[i] = nodePositions[i];
+        }
 
-    layout();
+        layout();
 
     });
 }, 300)
@@ -1554,7 +1587,7 @@ function addImage(image) {
         modalImgContainer.appendChild(customCarousel);
 
         // set the color picker to the new image bg color
-        preview.onload = function() {
+        preview.onload = function () {
             let bgColor = getBgColor(preview);
             if (bgColor) {
                 setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
@@ -1602,7 +1635,7 @@ function applySettings() {
                 default:
                     dialWidth = 220;
             }
-        
+
             const containerWidth = settings.maxCols * (dialWidth + dialMargin);
             document.documentElement.style.setProperty('--columns', `${containerWidth}px`);
             layout();
@@ -1648,10 +1681,10 @@ function applySettings() {
             }
         }
 
-        if (settings.showFolders) {
-            document.documentElement.style.setProperty('--show-folders', 'inline');
+        if (settings.showgroups) {
+            document.documentElement.style.setProperty('--show-groups', 'inline');
         } else {
-            document.documentElement.style.setProperty('--show-folders', 'none');
+            document.documentElement.style.setProperty('--show-groups', 'none');
         }
 
         if (settings.showClock) {
@@ -1690,14 +1723,14 @@ function applySettings() {
         showTitlesInput.checked = settings.showTitles;
         showCreateDialInput.checked = settings.showAddSite;
         largeTilesInput.checked = settings.largeTiles;
-        showFoldersInput.checked = settings.showFolders;
+        showgroupsInput.checked = settings.showgroups;
         showClockInput.checked = settings.showClock;
         showSettingsBtnInput.checked = settings.showSettingsBtn;
         maxColsInput.value = settings.maxCols;
         dialSizeInput.value = settings.dialSize;
         dialRatioInput.value = settings.dialRatio;
         defaultSortInput.value = settings.defaultSort;
-        rememberFolderInput.checked = settings.rememberFolder;
+        rememberGroupInput.checked = settings.rememberGroup;
 
         if (settings.wallpaperSrc) {
             imgPreview.setAttribute('src', settings.wallpaperSrc);
@@ -1735,15 +1768,15 @@ function saveSettings() {
     settings.showTitles = showTitlesInput.checked;
     settings.showAddSite = showCreateDialInput.checked;
     settings.largeTiles = largeTilesInput.checked;
-    settings.showFolders = showFoldersInput.checked;
+    settings.showgroups = showgroupsInput.checked;
     settings.showClock = showClock.checked;
     settings.showSettingsBtn = showSettingsBtn.checked;
     settings.maxCols = maxColsInput.value;
     settings.dialSize = dialSizeInput.value;
     settings.dialRatio = dialRatioInput.value;
     settings.defaultSort = defaultSortInput.value;
-    settings.rememberFolder = rememberFolderInput.checked;
-    settings.currentFolder = currentGroup ? currentGroup : selectedGroupId;
+    settings.rememberGroup = rememberGroupInput.checked;
+    settings.currentGroupId = currentGroupId ? currentGroupId : selectedGroupId;
 
     applySettings();
 
@@ -1778,13 +1811,13 @@ document.addEventListener("contextmenu", function (e) {
         targetTileTitle = e.target.nextElementSibling.innerText;
         showContextMenu(menu, e.pageY, e.pageX);
         return false;
-    } else if (e.target.classList.contains('folderTitle') && e.target.id !== "homeFolderLink") {
+    } else if (e.target.classList.contains('groupTitle') && e.target.id !== "homegroupLink") {
         targetGroupLink = e.target;
-        targetGroupId = e.target.attributes.folderId.nodeValue;
+        targetGroupId = e.target.attributes.groupId.nodeValue;
         targetGroupName = e.target.textContent;
-        showContextMenu(folderMenu, e.pageY, e.pageX);
+        showContextMenu(groupMenu, e.pageY, e.pageX);
         return false;
-    } else if (e.target === document.body || e.target.className === 'folders' || e.target.className === 'container' || e.target.className === 'tileContainer' || e.target.className === 'cta-container' || e.target.className === 'default-content' || e.target.className === 'default-content helpText') {
+    } else if (e.target === document.body || e.target.className === 'groups' || e.target.className === 'container' || e.target.className === 'tileContainer' || e.target.className === 'cta-container' || e.target.className === 'default-content' || e.target.className === 'default-content helpText') {
         showContextMenu(settingsMenu, e.pageY, e.pageX);
         return false;
     }
@@ -1825,7 +1858,7 @@ window.addEventListener("mousedown", e => {
         return;
     }
 
-    console.log("classname:"+e.target.className);
+    console.log("classname:" + e.target.className);
     switch (e.target.className) {
         // todo: invert this
         case 'default-content':
@@ -1835,7 +1868,7 @@ window.addEventListener("mousedown", e => {
         case 'container':
         case 'tileContainer':
         case 'cta-container':
-        case 'folders':
+        case 'groups':
             hideSettings();
             break;
         case 'modal':
@@ -1873,16 +1906,16 @@ window.addEventListener("mousedown", e => {
                     modalShowEffect(refreshAllModalContent, refreshAllModal);
                     break;
                 case 'delete':
-                    console.log("deleting "+ e.target);
+                    console.log("deleting " + e.target);
                     removeBookmark(targetTileId.split('-')[1]);
                     break;
-                case 'editFolder':
-                    editFolderModalName.value = targetGroupName;
-                    modalShowEffect(editFolderModalContent, editGroupModal);
+                case 'editgroup':
+                    editgroupModalName.value = targetGroupName;
+                    modalShowEffect(editgroupModalContent, editGroupModal);
                     break;
-                case 'deleteFolder':
-                    deleteFolderModalName.textContent = targetGroupName;
-                    modalShowEffect(deleteFolderModalContent, deleteGroupModal);
+                case 'deletegroup':
+                    deletegroupModalName.textContent = targetGroupName;
+                    modalShowEffect(deletegroupModalContent, deleteGroupModal);
                     break;
                 case 'newDial':
                     // prevent default required to stop focus from leaving the modal input
@@ -1890,7 +1923,7 @@ window.addEventListener("mousedown", e => {
                     buildCreateDialModal(currentGroup);
                     modalShowEffect(createDialModalContent, createDialModal);
                     break;
-                case 'newFolder':
+                case 'newgroup':
                     e.preventDefault();
                     addGroupBtn();
                     break;
@@ -1918,7 +1951,7 @@ createDialModalSave.addEventListener("click", createDial);
 addGroupButton.addEventListener("click", addGroupBtn);
 createGroupModalSave.addEventListener("click", createGroup);
 editGroupModalSave.addEventListener("click", editGroup);
-deleteGroupModalSave.addEventListener("click", removeFolder);
+deleteGroupModalSave.addEventListener("click", removeGroup);
 refreshAllModalSave.addEventListener("click", refreshAllThumbnails);
 
 for (let button of closeModal) {
@@ -2005,7 +2038,7 @@ showCreateDialInput.oninput = function (e) {
     saveSettings()
 }
 
-showFoldersInput.oninput = function (e) {
+showgroupsInput.oninput = function (e) {
     saveSettings()
 }
 
@@ -2013,7 +2046,7 @@ showClockInput.oninput = function (e) {
     saveSettings()
 }
 
-rememberFolderInput.oninput = function (e) {
+rememberGroupInput.oninput = function (e) {
     saveSettings()
 }
 
@@ -2146,17 +2179,17 @@ function prepareExportV1() {
 }
 
 function prepareExport() {
-    // exports yasd json file that includes all bookmarks within the root speed dial folder, along with the yasd settings and thumbnails from storage
+    // exports yasd json file that includes all bookmarks within the root speed dial group, along with the yasd settings and thumbnails from storage
     // in the following format:
 
     /*
     const yasdJson = {
         "yasd": {
             "bookmarks":[
-                {"id":123,"title":"Site Title","url":"https://www.website.com","index":1,"folderid":3}
+                {"id":123,"title":"Site Title","url":"https://www.website.com","index":1,"groupid":3}
             ],
-            "folders":[
-                {"id":123,"title":"Folder Title","index":1}
+            "groups":[
+                {"id":123,"title":"group Title","index":1}
             ],
             "settings":{
                 "showClock":true,
@@ -2174,13 +2207,13 @@ function prepareExport() {
         yasd: {
             version: 3,
             bookmarks: [],
-            folders: [],
+            groups: [],
             settings: {},
             dials: []
         }
     };
 
-    // Get bookmarks and folders within the speed dial folder
+    // Get bookmarks and groups within the speed dial group
     chrome.bookmarks.getSubTree(selectedGroupId).then(bookmarkTreeNodes => {
         function traverseBookmarks(nodes, parentId = null) {
             nodes.forEach(node => {
@@ -2190,10 +2223,10 @@ function prepareExport() {
                         title: node.title,
                         url: node.url,
                         index: node.index,
-                        folderid: parentId
+                        groupid: parentId
                     });
                 } else {
-                    yasdJson.yasd.folders.push({
+                    yasdJson.yasd.groups.push({
                         id: node.id,
                         title: node.title,
                         index: node.index
@@ -2286,19 +2319,19 @@ function filterDials(searchTerm) {
 
         if (title && title.includes(searchTerm) || url.includes(searchTerm)) {
             // Fade-in and scale-up for matching thumbnails
-            TweenMax.to(dial, 0.3, { 
-                opacity: 1, 
-                scale: 1, 
-                display: 'block', 
-                ease: Power2.easeOut 
+            TweenMax.to(dial, 0.3, {
+                opacity: 1,
+                scale: 1,
+                display: 'block',
+                ease: Power2.easeOut
             });
         } else {
             // Fade-out and scale-down for non-matching thumbnails
-            TweenMax.to(dial, 0.3, { 
-                opacity: 0, 
-                scale: 0.8, 
-                display: 'none', 
-                ease: Power2.easeIn 
+            TweenMax.to(dial, 0.3, {
+                opacity: 0,
+                scale: 0.8,
+                display: 'none',
+                ease: Power2.easeIn
             });
         }
     });
@@ -2311,7 +2344,7 @@ function filterDials(searchTerm) {
 document.getElementById('closeSearch').addEventListener('click', () => {
     const searchInput = document.getElementById('searchInput');
     const searchContainer = document.getElementById('searchContainer');
-    
+
     searchInput.value = ''; // Clear the search input
     searchContainer.classList.remove('active'); // Hide the search container
     filterDials('');
@@ -2383,8 +2416,8 @@ function importFromSD2(json) {
             bookmarks.forEach(bookmark => {
                 let parentId = groupIds[bookmark.idgroup];
                 chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsInFolder) {
+                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsIngroup) {
                         chrome.bookmarks.create({
                             title: bookmark.title,
                             url: bookmark.url,
@@ -2399,7 +2432,7 @@ function importFromSD2(json) {
             processRefresh();
         }).catch(err => {
             console.log(err)
-            importExportStatus.innerText = "SD2 import error! Unable to create folders."
+            importExportStatus.innerText = "SD2 import error! Unable to create groups."
         });
 
     }).catch(err => {
@@ -2445,8 +2478,8 @@ function importFromFVD(json) {
             bookmarks.forEach(bookmark => {
                 let parentId = groupIds[bookmark.groupId];
                 chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsInFolder) {
+                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsIngroup) {
                         chrome.bookmarks.create({
                             title: bookmark.title,
                             url: bookmark.url,
@@ -2461,7 +2494,7 @@ function importFromFVD(json) {
             processRefresh();
         }).catch(err => {
             console.log(err);
-            importExportStatus.innerText = "FVD import error! Unable to create folders.";
+            importExportStatus.innerText = "FVD import error! Unable to create groups.";
         });
 
     }).catch(err => {
@@ -2473,7 +2506,7 @@ function importFromFVD(json) {
 function importFromYASD(json) {
     // import from yasd v3 format:
     let yasdData = json.yasd;
-        
+
     // Clear previous settings and import new data
     chrome.storage.local.clear().then(() => {
         // Store settings
@@ -2488,35 +2521,35 @@ function importFromYASD(json) {
             return chrome.storage.local.set({ [url]: dialData });
         });
 
-        // Create folders and get their IDs
-        let folderPromises = yasdData.folders.sort((a, b) => a.index - b.index).map(folder => {
-            return chrome.bookmarks.search({ title: folder.title }).then(existingFolders => {
-                const matchingFolders = existingFolders.filter(f => f.parentId === selectedGroupId);
-                if (matchingFolders.length > 0) {
-                    return { oldId: folder.id, newId: matchingFolders[0].id };
+        // Create groups and get their IDs
+        let groupPromises = yasdData.groups.sort((a, b) => a.index - b.index).map(group => {
+            return chrome.bookmarks.search({ title: group.title }).then(existinggroups => {
+                const matchinggroups = existinggroups.filter(f => f.parentId === selectedGroupId);
+                if (matchinggroups.length > 0) {
+                    return { oldId: group.id, newId: matchinggroups[0].id };
                 } else {
                     return chrome.bookmarks.create({
-                        title: folder.title,
+                        title: group.title,
                         parentId: selectedGroupId
                     }).then(node => {
-                        return { oldId: folder.id, newId: node.id };
+                        return { oldId: group.id, newId: node.id };
                     });
                 }
             });
         });
 
-        Promise.all(folderPromises).then(folderIdMappings => {
-            let folderIdMap = {};
-            folderIdMappings.forEach(mapping => {
-                folderIdMap[mapping.oldId] = mapping.newId;
+        Promise.all(groupPromises).then(groupIdMappings => {
+            let groupIdMap = {};
+            groupIdMappings.forEach(mapping => {
+                groupIdMap[mapping.oldId] = mapping.newId;
             });
 
-            // Create bookmarks using the new folder IDs
+            // Create bookmarks using the new group IDs
             let bookmarkPromises = yasdData.bookmarks.map(bookmark => {
-                let parentId = folderIdMap[bookmark.folderid] || selectedGroupId;
+                let parentId = groupIdMap[bookmark.groupid] || selectedGroupId;
                 return chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsInFolder) {
+                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsIngroup) {
                         return chrome.bookmarks.create({
                             title: bookmark.title,
                             url: bookmark.url,
@@ -2536,7 +2569,7 @@ function importFromYASD(json) {
             });
         }).catch(err => {
             console.log(err);
-            importExportStatus.innerText = "Error! Unable to create folders.";
+            importExportStatus.innerText = "Error! Unable to create groups.";
         });
     }).catch(err => {
         console.log(err);
@@ -2562,26 +2595,26 @@ function importFromOldYASD(json) {
     })
 }
 
-// native handlers for folder tab target
+// native handlers for group tab target
 function dragenterHandler(ev) {
     // temporary fix for firefox < v92
     // firefox returns a text node instead of an element
     if (ev.target.nodeType === 3) {
-        if (ev.target.parentElement.classList.contains("folderTitle")) {
+        if (ev.target.parentElement.classList.contains("groupTitle")) {
             // avoid repaints
-            if (currentGroup !== ev.target.parentElement.attributes.folderid.value) {
-                currentGroup = ev.target.parentElement.attributes.folderid.value;
+            if (currentGroup !== ev.target.parentElement.attributes.groupid.value) {
+                currentGroup = ev.target.parentElement.attributes.groupid.value;
                 showGroup(currentGroup)
             }
         }
     }
-    else if (ev.target.classList.contains("folderTitle")) {
+    else if (ev.target.classList.contains("groupTitle")) {
         // avoid repaints
         // todo replace style changes with class;
-        if (currentGroup !== ev.target.attributes.folderid.value) {
+        if (currentGroup !== ev.target.attributes.groupid.value) {
             ev.target.style.padding = "20px";
             ev.target.style.outline = "2px dashed white";
-            currentGroup = ev.target.attributes.folderid.value;
+            currentGroup = ev.target.attributes.groupid.value;
             showGroup(currentGroup)
         }
     }
@@ -2592,7 +2625,7 @@ function dragleaveHandler(ev) {
     if (ev.target.nodeType === 3) {
         return
     }
-    else if (ev.target.classList.contains("folderTitle")) {
+    else if (ev.target.classList.contains("groupTitle")) {
         ev.target.style.padding = "0";
         ev.target.style.outline = "none";
     }
@@ -2602,7 +2635,7 @@ function dragleaveHandler(ev) {
 function onMoveHandler(evt) {
     if (evt.related) {
         if (evt.to.children.length > 1) {
-            // when no bookmarks are present we keep the createdial enabled so we have a drop target for dials dragged into folder
+            // when no bookmarks are present we keep the createdial enabled so we have a drop target for dials dragged into group
             return !evt.related.classList.contains('createDial');
         } else {
             // force new dial to drop before add dial button
@@ -2613,7 +2646,7 @@ function onMoveHandler(evt) {
 }
 
 function dewrap(str) {
-    // unlike folder tabs, main dial container doesnt include the folder id
+    // unlike group tabs, main dial container doesnt include the group id
     // todo: cleanup
     if (str === "wrap") {
         return selectedGroupId
@@ -2636,18 +2669,18 @@ function onEndHandler(evt) {
         if (fromParentId !== toParentId && toParentId !== evt.originalEvent.target.id) {
             // sortable's position doesn't match the dom's drop target
             // this may happen if the tile is dragged over a sortable list but then ultimately dropped somewhere else
-            // for example directly on the folder name, or directly onto the new dial button. so use the currentFolder as the target
+            // for example directly on the group name, or directly onto the new dial button. so use the currentgroup as the target
             toParentId = currentGroup ? currentGroup : selectedGroupId;
         }
 
         if (fromParentId === toParentId && fromParentId !== currentGroup) {
-            // occurs when there is no sortable target -- for example dropping the dial onto the folder name
+            // occurs when there is no sortable target -- for example dropping the dial onto the group name
             // or some space of the page outside the sortable container element
             toParentId = currentGroup ? currentGroup : selectedGroupId;
         }
 
         // if the sibling's parent doesnt match the parent we are moving to discard this sibling
-        // can occur when dropping onto a non sortable target (like folder name)
+        // can occur when dropping onto a non sortable target (like group name)
         if (newSiblingParentId && newSiblingParentId !== toParentId) {
             newSiblingId = -1;
         }
@@ -2655,14 +2688,14 @@ function onEndHandler(evt) {
         if ((fromParentId && toParentId && fromParentId !== toParentId) || oldIndex !== newIndex) {
             moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSiblingId)
         }
-    } else if (evt && evt.clone.classList.contains('folderTitle')) {
+    } else if (evt && evt.clone.classList.contains('groupTitle')) {
         let oldIndex = evt.oldIndex;
         let newIndex = evt.newIndex;
 
         if (newIndex !== oldIndex) {
-            if (evt.clone.attributes.folderid) {
-                let id = evt.clone.attributes.folderid.value;
-                let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.attributes.folderid.value : null;
+            if (evt.clone.attributes.groupid) {
+                let id = evt.clone.attributes.groupid.value;
+                let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.attributes.groupid.value : null;
                 moveGroup(id, oldIndex, newIndex, newSiblingId)
             }
         }
@@ -2682,7 +2715,6 @@ const processRefresh = debounce(({ groupsOnly = false } = {}) => {
 
         //bookmarksContainer.style.opacity = "0";
 
-        //getBookmarks(speedDialId)
         buildDialPages(currentGroupId)
     }
 }, 650, true);
@@ -2759,10 +2791,10 @@ function handleMessages(message) {
     if (message.data.refresh) {
         hideToast();
         processRefresh();
-    } else if(message.data.reloadGroups) {
+    } else if (message.data.reloadGroups) {
         hideToast();
         processRefresh({ groupsOnly: true });
-    } else if(message.type === 'thumbBatch') {
+    } else if (message.type === 'thumbBatch') {
         // lets update the backgroundImage with the thumbnail for each element using its id (parentId + id)
         // data.thumbs is an array of objects containing id, parentId, thumbnail and bgcolor
         //console.log(message.data);
@@ -2788,32 +2820,32 @@ function init() {
     })
 
     new Promise(resolve => chrome.storage.local.get('settings', resolve))
-    .then(result => {
-        console.log(settings);
-        if (result) {
-            if (result.settings) {
-                settings = Object.assign({}, defaults, result.settings);
-            } else {
-                settings = defaults;
+        .then(result => {
+            console.log(settings);
+            if (result) {
+                if (result.settings) {
+                    settings = Object.assign({}, defaults, result.settings);
+                } else {
+                    settings = defaults;
+                }
             }
-        }
 
-        currentGroupId = settings.currentGroupId;
-        selectedGroupId = settings.currentGroupId;
-        applySettings()
-            .then(() => buildDialPages(selectedGroupId));
-    });
+            currentGroupId = settings.currentGroupId;
+            selectedGroupId = settings.currentGroupId;
+            applySettings()
+                .then(() => buildDialPages(selectedGroupId));
+        });
 
     sidenav.style.display = "flex";
 
-    new Sortable(foldersContainer, {
+    new Sortable(groupsContainer, {
         animation: 150,
         forceFallback: true,
         fallbackTolerance: 4,
-        filter: "#homeFolderLink",
+        filter: "#homegroupLink",
         ghostClass: 'selected',
         onMove: function (evt) {
-            return evt.related.id !== 'homeFolderLink';
+            return evt.related.id !== 'homegroupLink';
         },
         onEnd: onEndHandler
     });

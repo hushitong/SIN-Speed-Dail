@@ -7,13 +7,13 @@
 
 // EVENT LISTENERS //
 
-// firefox triggers 'moved' for bookmarks saved to different folder than default
+// firefox triggers 'moved' for bookmarks saved to different group than default
 // firefox triggers 'changed' for bookmarks created manually todo: confirm
 // chrome triggers 'created' for bookmarks created manually in bookmark mgr
 // chrome.bookmarks.onMoved.addListener(handleBookmarkChanged);
 // chrome.bookmarks.onChanged.addListener(handleBookmarkChanged);
 // chrome.bookmarks.onCreated.addListener(handleBookmarkChanged);
-chrome.bookmarks.onRemoved.addListener(handleBookmarkRemoved);
+// chrome.bookmarks.onRemoved.addListener(handleBookmarkRemoved);
 
 chrome.action.onClicked.addListener(handleBrowserAction);
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
@@ -128,7 +128,7 @@ async function handleBookmarkChanged(changeType,groupId) {
 	// }
 
 	// info may only contain "changed" info -- 
-	// ex. it may not contain url for moves, just old and new folder ids
+	// ex. it may not contain url for moves, just old and new group ids
     // so we always "get" the bookmark to access all its info
     let bookmarks = null
 	switch (changeType) {
@@ -150,7 +150,7 @@ async function handleBookmarkChanged(changeType,groupId) {
 			return;
 	}
 
-    // todo: filter changes that arent in the speed dial or subfolder, like moving site out of speed dial
+    // todo: filter changes that arent in the speed dial or subgroup, like moving site out of speed dial
     // todo: debounce the message to any open tabs to rerender or debounce render side?
 
     if (bookmarks[bookmarks.length-1].url) {
@@ -172,19 +172,19 @@ async function handleBookmarkChanged(changeType,groupId) {
     		}
     	}
     } else {
-    	// folder
-    	if (bookmarks[0].title === "New Folder") {
-    		// firefox creates a placeholder for the folder when created via bookmark manager
+    	// group
+    	if (bookmarks[0].title === "New group") {
+    		// firefox creates a placeholder for the group when created via bookmark manager
             return
     	} else if (info && info.title && Object.keys(info).length === 1) {
-	        // folder is just being renamed
+	        // group is just being renamed
 			//refreshOpen()
 			reloadGroups()
 	        return
         } else {
-        	// folderIds.push(id); todo: chrome.storage.local.set({ folderIds });
-        	// new folder
-        	// recurse through the folder and get thumbnails
+        	// groupIds.push(id); todo: chrome.storage.local.set({ groupIds });
+        	// new group
+        	// recurse through the group and get thumbnails
         	const children = await chrome.bookmarks.getChildren(id);
         	if (children.length) {
         		for (let child of children) {
@@ -198,15 +198,15 @@ async function handleBookmarkChanged(changeType,groupId) {
 }
 
 async function handleBookmarkRemoved(id, info) {
-	// todo: handle upsert where speed dial folder is deleted
-	//if (info.node.url && (info.parentId === speedDialId || folderIds.indexOf(info.parentId) !== -1)) {
+	// todo: handle upsert where speed dial group is deleted
+	//if (info.node.url && (info.parentId === speedDialId || groupIds.indexOf(info.parentId) !== -1)) {
 	if (info.node.url) {
 		// remove the thumbnail from local storage
 		await chrome.storage.local.remove(info.node.url).catch((err) => {
 			console.log(err)
 		});
-	} else if (info.node.title !== "Speed Dial" && info.node.title !== "New Folder") {
-		// folder removed, refresh the tab?
+	} else if (info.node.title !== "Speed Dial" && info.node.title !== "New group") {
+		// group removed, refresh the tab?
 		//refreshOpen()
 	}
 	// todo: janky when we delete from the ui so disabled for now -- should only refresh inactive dial tabs, if they exist...
@@ -294,7 +294,7 @@ async function handleRefreshAll(data) {
 }
 
 async function createBookmarkFromContextMenu(tab) {
-	// get the speed dial folder id
+	// get the speed dial group id
 	let speedDialId = null;
 	const bookmarks = await chrome.bookmarks.search({ title: 'Speed Dial' })
 	if (bookmarks && bookmarks.length) {
@@ -334,7 +334,7 @@ async function handleInstalled(details) {
     if (details.reason === "install") {
         // set uninstall URL
         chrome.runtime.setUninstallURL("https://forms.gle/6vJPx6eaMV5xuxQk9");
-        // todo: detect existing speed dial folder
+        // todo: detect existing speed dial group
     } else if (details.reason === 'update') {
         if (details.previousVersion < '3.3') {
             const url = chrome.runtime.getURL("updated.html");

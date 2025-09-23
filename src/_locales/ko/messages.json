@@ -1,5 +1,5 @@
 {
-    "addFolderButton": {
+    "addgroupButton": {
       "message": "폴더 추가 버튼"
     },
     "address": {
@@ -32,7 +32,7 @@
     "confirmDelete": {
       "message": "이 폴더를 영구적으로 삭제하시겠습니까?"
     },
-    "createFolder": {
+    "creategroup": {
       "message": "폴더 만들기"
     },
     "defaultSort": {
@@ -50,7 +50,7 @@
     "edit": {
       "message": "편집"
     },
-    "editFolder": {
+    "editgroup": {
       "message": "폴더 편집..."
     },
     "export": {
@@ -103,7 +103,7 @@
     "newDial": {
       "message": "새로운 스피드 다이얼..."
     },
-    "newFolder": {
+    "newgroup": {
       "message": "새로운 폴더..."
     },
     "newInstall1": {

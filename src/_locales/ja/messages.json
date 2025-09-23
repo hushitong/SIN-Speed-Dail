@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "フォルダ追加ボタン"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "このフォルダを完全に削除してもよろしいですか？"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "フォルダを作成"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "編集"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "フォルダを編集..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "新しいスピードダイヤル..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "新しいフォルダ..."
   },
   "newInstall1": {

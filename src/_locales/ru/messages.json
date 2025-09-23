@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "Кнопка добавления папки"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "Вы действительно хотите удалить эту папку навсегда?"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "Создать папку"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "Редактировать"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "Редактировать папку..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "Новый Speed Dial..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "Новая папка..."
   },
   "newInstall1": {

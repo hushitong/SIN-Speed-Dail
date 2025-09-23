@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "Ordner hinzufügen Schaltfläche"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "Möchten Sie diesen Ordner wirklich dauerhaft entfernen?"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "Ordner erstellen"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "Bearbeiten"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "Ordner bearbeiten..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "Neue Kurzwahl..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "Neuer Ordner..."
   },
   "newInstall1": {

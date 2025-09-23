@@ -1,6 +1,6 @@
 {
-  "addFolderButton": {
-    "message": "Add Folder Button"
+  "addgroupButton": {
+    "message": "Add group Button"
   },
   "address": {
     "message": "Address"
@@ -30,10 +30,10 @@
     "message": "Clock"
   },
   "confirmDelete": {
-    "message": "Are you sure you want to permanently remove this folder?"
+    "message": "Are you sure you want to permanently remove this group?"
   },
-  "createFolder": {
-    "message": "Create Folder"
+  "creategroup": {
+    "message": "Create group"
   },
   "defaultSort": {
     "message": "Default Sort"
@@ -50,8 +50,8 @@
   "edit": {
     "message": "Edit"
   },
-  "editFolder": {
-    "message": "Edit Folder..."
+  "editgroup": {
+    "message": "Edit group..."
   },
   "export": {
     "message": "Export Settings..."
@@ -103,17 +103,17 @@
   "newDial": {
     "message": "New Speed Dial..."
   },
-  "newFolder": {
-    "message": "New Folder..."
+  "newgroup": {
+    "message": "New group..."
   },
   "newInstall1": {
     "message": "Get started with Yet Another Speed Dial!"
   },
   "newInstall2": {
-    "message": "⭐ Just add bookmarks to the Speed Dial folder and they will appear here"
+    "message": "⭐ Just add bookmarks to the Speed Dial group and they will appear here"
   },
   "newInstall3": {
-    "message": "✨ You can organize your bookmarks into subfolders"
+    "message": "✨ You can organize your bookmarks into subgroups"
   },
   "newInstall4": {
     "message": "✨ Right-click on a dial to edit it. You can also drag and drop to arrange them"
@@ -131,7 +131,7 @@
     "message": "Refresh Thumbnails"
   },
   "remember": {
-    "message": "Remember Last Folder"
+    "message": "Remember Last group"
   },
   "remove": {
     "message": "Remove"

@@ -1,5 +1,5 @@
 {
-  "addFolderButton": {
+  "addgroupButton": {
     "message": "Botão Adicionar Pasta"
   },
   "address": {
@@ -32,7 +32,7 @@
   "confirmDelete": {
     "message": "Tem certeza de que deseja remover permanentemente esta pasta?"
   },
-  "createFolder": {
+  "creategroup": {
     "message": "Criar Pasta"
   },
   "defaultSort": {
@@ -50,7 +50,7 @@
   "edit": {
     "message": "Editar"
   },
-  "editFolder": {
+  "editgroup": {
     "message": "Editar Pasta..."
   },
   "export": {
@@ -103,7 +103,7 @@
   "newDial": {
     "message": "Nova discagem rápida..."
   },
-  "newFolder": {
+  "newgroup": {
     "message": "Nova Pasta..."
   },
   "newInstall1": {

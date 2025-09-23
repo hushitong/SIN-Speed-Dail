@@ -1,6 +1,6 @@
 {
-  "addFolderButton": {
-    "message": "添加文件夹按钮"
+  "addgroupButton": {
+    "message": "添加分组按钮"
   },
   "address": {
     "message": "地址"
@@ -30,10 +30,10 @@
     "message": "时钟"
   },
   "confirmDelete": {
-    "message": "您确定要永久删除此文件夹吗？"
+    "message": "您确定要永久删除此分组吗？"
   },
-  "createFolder": {
-    "message": "创建文件夹"
+  "createGroup": {
+    "message": "创建分组"
   },
   "defaultSort": {
     "message": "默认排序"
@@ -50,8 +50,8 @@
   "edit": {
     "message": "编辑"
   },
-  "editFolder": {
-    "message": "编辑文件夹..."
+  "editGroup": {
+    "message": "编辑分组..."
   },
   "export": {
     "message": "导出设置..."
@@ -103,17 +103,17 @@
   "newDial": {
     "message": "新建快速拨号..."
   },
-  "newFolder": {
-    "message": "新建文件夹..."
+  "newgroup": {
+    "message": "新建分组..."
   },
   "newInstall1": {
     "message": "开始使用 Yet Another Speed Dial！"
   },
   "newInstall2": {
-    "message": "⭐ 只需将书签添加到快速拨号文件夹，它们就会出现在这里"
+    "message": "⭐ 只需将书签添加到快速拨号分组，它们就会出现在这里"
   },
   "newInstall3": {
-    "message": "✨ 您可以将书签整理到子文件夹中"
+    "message": "✨ 您可以将书签整理到子分组中"
   },
   "newInstall4": {
     "message": "✨ 右键单击拨号以编辑它。您还可以拖放以重新排列"
@@ -131,7 +131,7 @@
     "message": "刷新缩略图"
   },
   "remember": {
-    "message": "记住上次文件夹"
+    "message": "记住上次分组"
   },
   "remove": {
     "message": "移除"

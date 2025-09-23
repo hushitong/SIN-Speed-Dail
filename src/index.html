@@ -16,10 +16,10 @@
 
 <body>
 <!--
-<div id="foldersContainer" style="position:absolute; top:0; left:0"><span id="folders"></span><a title="Add Folder" class="tile folderTitle" style="padding-left: 12px; font-size: large; transform: matrix(1, 0, 0, 1, 0, 0);">+</a></div>
+<div id="groupsContainer" style="position:absolute; top:0; left:0"><span id="groups"></span><a title="Add group" class="tile groupTitle" style="padding-left: 12px; font-size: large; transform: matrix(1, 0, 0, 1, 0, 0);">+</a></div>
 -->
-<div class="folders" id="foldersContainer"><div id="folders" class="folders"></div><a id="addFolderButton" title="Add Folder">
-    <svg height="24" id="addFolderIcon" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<div class="groups" id="groupsContainer"><div id="groups" class="groups"></div><a id="addgroupButton" title="Add group">
+    <svg height="24" id="addgroupIcon" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
         <path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm0 12H4V6h5.17l2 2H20v10zm-8-4h2v2h2v-2h2v-2h-2v-2h-2v2h-2z"></path>
     </svg>
 </a></div>
@@ -54,17 +54,17 @@
     </ul>
 </div>
 
-<div class="menu" id="folderMenu">
+<div class="menu" id="groupMenu">
     <ul class="menu-options">
-        <li class="menu-option" data-locale="editFolder" id="editFolder">Edit Folder...</li>
-        <li class="menu-option" data-locale="remove" id="deleteFolder">Remove</li>
+        <li class="menu-option" data-locale="editGroup" id="editgroup">Edit group...</li>
+        <li class="menu-option" data-locale="remove" id="deletegroup">Remove</li>
     </ul>
 </div>
 
 <div class="menu" id="settingsMenu">
     <ul class="menu-options">
         <li class="menu-option" data-locale="newDial" id="newDial">New Speed Dial...</li>
-        <li class="menu-option" data-locale="newFolder" id="newFolder">New Folder...</li>
+        <li class="menu-option" data-locale="newgroup" id="newgroup">New group...</li>
         <li class="menu-separator"></li>
         <li class="menu-option" id="openAll">Open all</li>
         <li class="menu-separator"></li>
@@ -149,14 +149,14 @@
     </div>
 </div>
 
-<!-- create folder modal window -->
-<div class="modal" id="createFolderModal">
-    <div class="modal-content" id="createFolderModalContent">
+<!-- create group modal window -->
+<div class="modal" id="creategroupModal">
+    <div class="modal-content" id="creategroupModalContent">
         <form action="" class="tileForm">
-            <div class="formItem"><label data-locale="name" for="createFolderModalName">Name</label></div>
-            <div class="formItem"><input id="createFolderModalName" type="text"></div>
+            <div class="formItem"><label data-locale="name" for="creategroupModalName">Name</label></div>
+            <div class="formItem"><input id="creategroupModalName" type="text"></div>
             <div class="formItem">
-                <button class="save" data-locale="createFolder" id="createFolderModalSave">Create Folder</button>
+                <button class="save" data-locale="createGroup" id="creategroupModalSave">Create group</button>
             </div>
             <div class="formItem">
                 <button class="close" data-locale="cancel">Cancel</button>
@@ -165,14 +165,14 @@
     </div>
 </div>
 
-<!-- edit folder modal window -->
-<div class="modal" id="editFolderModal">
-    <div class="modal-content" id="editFolderModalContent">
+<!-- edit group modal window -->
+<div class="modal" id="editgroupModal">
+    <div class="modal-content" id="editgroupModalContent">
         <form action="" class="tileForm">
-            <div class="formItem"><label data-locale="name" for="editFolderModalName">Name</label></div>
-            <div class="formItem"><input id="editFolderModalName" type="text"></div>
+            <div class="formItem"><label data-locale="name" for="editgroupModalName">Name</label></div>
+            <div class="formItem"><input id="editgroupModalName" type="text"></div>
             <div class="formItem">
-                <button class="save" data-locale="save" id="editFolderModalSave">Save</button>
+                <button class="save" data-locale="save" id="editgroupModalSave">Save</button>
             </div>
             <div class="formItem">
                 <button class="close" data-locale="cancel">Cancel</button>
@@ -181,16 +181,16 @@
     </div>
 </div>
 
-<!-- delete folder modal confirmation window -->
-<div class="modal" id="deleteFolderModal">
-    <div class="modal-content" id="deleteFolderModalContent">
+<!-- delete group modal confirmation window -->
+<div class="modal" id="deletegroupModal">
+    <div class="modal-content" id="deletegroupModalContent">
         <form action="" class="tileForm">
-            <div id="deleteFolderModalName"></div>
+            <div id="deletegroupModalName"></div>
 
             <div class="formItem"><br/><label data-locale="confirmDelete">Are you sure you want to permanently remove
-                this folder?</label><br/><br/></div>
+                this group?</label><br/><br/></div>
             <div class="formItem">
-                <button class="delete" data-locale="delete" id="deleteFolderModalSave">Delete</button>
+                <button class="delete" data-locale="delete" id="deletegroupModalSave">Delete</button>
             </div>
             <div class="formItem">
                 <button class="close" data-locale="cancel">Cancel</button>
@@ -377,11 +377,11 @@
             </div>
             <div class='row'>
                 <div class='column'>
-                    <label data-locale="remember">Remember Last Folder</label>
+                    <label data-locale="remember">Remember Last group</label>
                 </div>
                 <div class='column controls'>
                     <label class="switch">
-                        <input class="settingsCtl" id="rememberFolder" type="checkbox">
+                        <input class="settingsCtl" id="remembergroup" type="checkbox">
                         <span class="slider round settingsCtl"></span>
                     </label>
                 </div>
@@ -421,11 +421,11 @@
             </div>
             <div class='row'>
                 <div class='column'>
-                    <label data-locale="addFolderButton">Add Folder Button</label>
+                    <label data-locale="addgroupButton">Add group Button</label>
                 </div>
                 <div class='column controls'>
                     <label class="switch">
-                        <input class="settingsCtl" id="showFolders" type="checkbox">
+                        <input class="settingsCtl" id="showgroups" type="checkbox">
                         <span class="slider round settingsCtl"></span>
                     </label>
                 </div>
