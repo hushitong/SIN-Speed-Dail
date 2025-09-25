@@ -9,7 +9,7 @@ import { state } from "./state.js"
 import { onEndHandler } from "./events.js";
 import { DOM } from "./dom.js";
 import { saveSettings } from "./setting.js";
-import { applySettings, initSettings, buildPages as buildBookmarkPages } from "./ui.js";
+import { initSettings, buildPages as buildBookmarkPages } from "./ui.js";
 
 // let tabMessagePort = null;
 
@@ -55,7 +55,7 @@ function init() {
             saveSettings(state.settings, wallpaperSrc, false).then(() => {
                 // applySettings(state.settings, wallpaperSrc);
                 initSettings(state.settings, wallpaperSrc);
-                buildBookmarkPages(state.selectedGroupId)
+                buildBookmarkPages(state.selectedGroupId);
             });
         });
 

@@ -14,7 +14,7 @@ let boxes = [];
 export async function buildPages(selectedGroupId) {
     // 获得 bookmarks 和 groups 数据
     state.data = await getData();
-    console.log(state.data);
+    console.log("buildPages state.data", state.data);
     const groups = state.data.groups;
 
     // 如果没有任何分组，添加一个主页分组
@@ -172,20 +172,21 @@ export function hideSettings() {
 }
 
 // 显示提示
+export function showToast(message, hideDelay) {
+    if (!isToastVisible) {
+        DOM.toastContent.innerText = message;
+        DOM.toast.style.transform = "translateX(0%)";
+        isToastVisible = true;
+    }
+    if (hideDelay)
+        setTimeout(() => hideToast(), hideDelay);
+}
+// 隐藏提示
 export function hideToast() {
     if (isToastVisible) {
         DOM.toast.style.transform = "translateX(100%)";
         DOM.toastContent.innerText = '';
         isToastVisible = false;
-    }
-}
-
-// 隐藏提示
-export function showToast(message) {
-    if (!isToastVisible) {
-        DOM.toastContent.innerText = message;
-        DOM.toast.style.transform = "translateX(0%)";
-        isToastVisible = true;
     }
 }
 
@@ -251,20 +252,20 @@ export const processRefresh = debounce(({ groupsOnly = false } = {}) => {
     }
 }, 650, true);
 
-// 根据设置设定界面样式
-export function applySettings(settings = null, wallpaperSrc = null, wallpaperCheckboxChanged = false, wallpaperSrcChanged = false) {
-    console.log("applySettings settings: ", settings);
+// // 根据设置设定界面样式
+// export function applySettings(settings = null, wallpaperSrc = null, wallpaperCheckboxChanged = false, wallpaperSrcChanged = false) {
+//     console.log("applySettings settings: ", settings);
 
-    return new Promise(function (resolve, reject) {
-        DOM.settingsBtn.style.setProperty('--settings', 'block');
+//     return new Promise(function (resolve, reject) {
+//         DOM.settingsBtn.style.setProperty('--settings', 'block');
 
-        // 提前确定 Promise 的最终状态为 fulfilled，然后继续执行下面代码（后面代码通常是比较耗时且不会影响最终结果的）
-        // 能使调用方提前知道结果执行后面代码
-        resolve();
+//         // 提前确定 Promise 的最终状态为 fulfilled，然后继续执行下面代码（后面代码通常是比较耗时且不会影响最终结果的）
+//         // 能使调用方提前知道结果执行后面代码
+//         resolve();
 
-        // setDOM(settings);
-    });
-};
+//         // setDOM(settings);
+//     });
+// };
 
 // 页面初始化使用，根据设置设定界面样式
 export function initSettings(settings, wallpaperSrc) {
@@ -273,11 +274,12 @@ export function initSettings(settings, wallpaperSrc) {
     return new Promise(function (resolve, reject) {
         DOM.settingsBtn.style.setProperty('--settings', 'block');
 
-        applyBookmarkRelatedChanged(initSettings);
-        applyOtherChanged(initSettings);
+        applyBookmarkRelatedChanged(settings);
+        applyOtherChanged(settings);
 
         resolve();
 
+        setDOM(settings);
         applyBackgroundChanged(settings.wallPaperEnable, wallpaperSrc);
     });
 }
@@ -285,21 +287,21 @@ export function initSettings(settings, wallpaperSrc) {
 // 根据 settings 设置 DOM
 function setDOM(settings) {
     // 设置侧边栏
-    // DOM.wallPaperEnableCheckbox.checked = settings.wallPaperEnable;
-    // DOM.bgColorPicker.value = settings.backgroundColor;
-    // DOM.bgColorPicker_wrapper.style.backgroundColor = settings.backgroundColor;
-    // DOM.textColorPicker.value = settings.textColor;
-    // DOM.textColorPicker_wrapper.style.backgroundColor = settings.textColor;
-    // DOM.showTitlesCheckbox.checked = settings.showTitles;
-    // DOM.showCreateBookmarkCheckbox.checked = settings.showAddSiteBtn;
-    // // DOM.largeTilesInput.checked = settings.largeTiles;
-    // DOM.showCreateGroupsCheckbox.checked = settings.showAddGroupsBtn;
-    // DOM.showClockCheckbox.checked = settings.showClock;
-    // DOM.bookmarkMaxColsSelect.value = settings.maxCols;
-    // DOM.bookmarkSizeSelect.value = settings.bookmarkSize;
-    // DOM.bookmarkRatioSelect.value = settings.dialRatio;
-    // DOM.defaultSortSelect.value = settings.defaultSort;
-    // DOM.rememberGroupCheckbox.checked = settings.rememberGroup;
+    DOM.wallPaperEnableCheckbox.checked = settings.wallPaperEnable;
+    DOM.bgColorPicker.value = settings.backgroundColor;
+    DOM.bgColorPicker_wrapper.style.backgroundColor = settings.backgroundColor;
+    DOM.textColorPicker.value = settings.textColor;
+    DOM.textColorPicker_wrapper.style.backgroundColor = settings.textColor;
+    DOM.showTitlesCheckbox.checked = settings.showTitles;
+    DOM.showCreateBookmarkCheckbox.checked = settings.showAddSiteBtn;
+    // DOM.largeTilesInput.checked = settings.largeTiles;
+    DOM.showCreateGroupsCheckbox.checked = settings.showAddGroupsBtn;
+    DOM.showClockCheckbox.checked = settings.showClock;
+    DOM.bookmarkMaxColsSelect.value = settings.maxCols;
+    DOM.bookmarkSizeSelect.value = settings.bookmarkSize;
+    DOM.bookmarkRatioSelect.value = settings.dialRatio;
+    DOM.defaultSortSelect.value = settings.defaultSort;
+    DOM.rememberGroupCheckbox.checked = settings.rememberGroup;
 }
 
 // ImgPreviewDiv 相关事件绑定
@@ -332,19 +334,6 @@ export function applyBackgroundChanged(wallPaperEnable, wallpaperSrc) {
     console.log("applyWallpaperSrcChanged wallpaperSrc: ", wallpaperSrc?.length < 100 ? wallpaperSrc : wallpaperSrc?.substring(200, 20));
     // 启用背景图并且上传了背景图
     if (wallPaperEnable && wallpaperSrc) {
-        // DOM.imgPreviewDiv.onload = function (e) {
-        //     if (wallpaperSrc.length < 65) {
-        //         document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
-        //     } else {
-        //         document.body.style.background = `url("${wallpaperSrc}") no-repeat top center fixed`;
-        //         document.body.style.backgroundSize = 'cover';
-        //     }
-        // }
-        // DOM.imgPreviewDiv.onerror = function (e) {
-        //     state.wallpaperSrc = state.defaultWallpaperSrc;
-        //     DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
-        //     chrome.storage.local.set({ wallpaperSrc: state.defaultWallpaperSrc });
-        // }
         bindImgPreviewDivEvents();
 
         DOM.imgPreviewDiv.setAttribute('src', wallpaperSrc);
@@ -353,6 +342,9 @@ export function applyBackgroundChanged(wallPaperEnable, wallpaperSrc) {
     }
     else {
         document.body.style.background = DOM.bgColorPicker.value;
+        DOM.backgroundColorContainer.style.display = "flex";
+        DOM.previewContainer.style.opacity = '0';
+        DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
     }
 }
 
@@ -365,19 +357,6 @@ export function applyWallpaperEnableChanged(isWallpaperCheckboxChanged) {
         // 2. 设置背景src为初始背景
         // 3. 背景变为初始背景
         if (DOM.wallPaperEnableCheckbox.checked === true) {
-            // DOM.imgPreviewDiv.onload = function (e) {
-            //     if (e.target.src.length < 65) {
-            //         document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
-            //     } else {
-            //         document.body.style.background = `url("${e.target.src}") no-repeat top center fixed`;
-            //         document.body.style.backgroundSize = 'cover';
-            //     }
-            // }
-            // DOM.imgPreviewDiv.onerror = function (e) {
-            //     state.wallpaperSrc = state.defaultWallpaperSrc;
-            //     DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
-            //     chrome.storage.local.set({ wallpaperSrc: state.defaultWallpaperSrc });
-            // }
             bindImgPreviewDivEvents();
 
             DOM.backgroundColorContainer.style.display = "none";

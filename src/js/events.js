@@ -9,7 +9,7 @@ import {
 } from "./setting.js";
 import {
     showContextMenu, hideMenus, hideSettings, openSettings,
-    applySettings, applyBackgroundChanged, applyWallpaperEnableChanged, applyBookmarkRelatedChanged, applyOtherChanged,
+    applyBackgroundChanged, applyWallpaperEnableChanged, applyBookmarkRelatedChanged, applyOtherChanged,
     hideToast, processRefresh, layout
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"

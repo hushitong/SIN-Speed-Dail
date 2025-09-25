@@ -69,7 +69,7 @@ export async function saveNewBookmark(groupId, url, title) {
 // 实际作用就是根据 groupId 和 bookmarks 数组，生成指定分组的书签列表的 DOM 节点并插入到页面中
 // selectedGroupId 是要显示的分组，bookmarks 是该分组的书签数组
 export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
-    console.log("printBookmarks:", bookmarks, selectedGroupId);
+    console.log("printBookmarksByGroupId:", bookmarks, selectedGroupId);
     let fragment = document.createDocumentFragment();
 
     // Collect URLs for batch thumbnail fetching
@@ -133,7 +133,7 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
     }
 
     // 添加“新建书签”按钮
-    let newBookmarkButton = createNewBookmarkButton(selectedGroupId);
+    let newBookmarkButton = createNewBookmarkBtnDOM(selectedGroupId);
     if (state.settings.defaultSort !== "first") {
         fragment.appendChild(newBookmarkButton);
     } else {
@@ -201,7 +201,7 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
 }
 
 // 创建添加书签按钮+
-function createNewBookmarkButton(groupId) {
+function createNewBookmarkBtnDOM(groupId) {
     let anewBookmark = document.createElement('a');
     anewBookmark.classList.add('tile', 'createDial');
     anewBookmark.onclick = () => {

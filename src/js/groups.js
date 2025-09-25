@@ -69,8 +69,7 @@ export function groupLink(groupTitle, groupId) {
         DOM.bookmarksContainerParent.scrollTop = state.scrollPos;
 
         state.settings.currentGroupId = groupId;
-        let settings = state.settings;
-        chrome.storage.local.set({ settings });
+        chrome.storage.local.set({ settings:state.settings });
     };
 
     // todo: allow dropping directly on group title?
@@ -118,13 +117,15 @@ export function removeGroup() {
 
     saveData({ groups: updateGroups, bookmarks: updateBookmarks }).then(() => {
         hideModals();
-        showToast(" Group removed");
+        showToast("Goup Remove!",2000);
         if (state.currentGroupId === state.targetGroupId) {
-            state.currentGroupId = state.homeGroup.id;
-            state.settings.currentGroupId = state.homeGroup.id;
-            chrome.storage.local.set({ settings });
+            let homeGroupId = state.homeGroup.id;
+            state.currentGroupId = homeGroupId;
+            state.settings.currentGroupId = homeGroupId;
+            chrome.storage.local.set({ settings: state.settings });
             reBuildGroupPages();
-            printBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === state.homeGroup.id), state.homeGroup.id);
+            printBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
+            showGroup(homeGroupId);
         } else {
             reBuildGroupPages();
         }
