@@ -58,38 +58,37 @@ export const DOM = {
     noBookmarks: document.getElementById('noBookmarks'),
 
     // settings sidebar
-    color_picker: document.getElementById("color-picker"),
-    color_picker_wrapper: document.getElementById("color-picker-wrapper"),
-    textColor_picker: document.getElementById("textColor-picker"),
-    textColor_picker_wrapper: document.getElementById("textColor-picker-wrapper"),
-    imgInput: document.getElementById("file"),
-    imgPreview: document.getElementById("preview"),
-    previewOverlay: document.getElementById("previewOverlay"),
-    switchesContainer: document.getElementById("switchesContainer"),
-    wallPaperEnabled: document.getElementById("wallpaper"),
+    wallPaperEnableCheckbox: document.getElementById("wallpaper"),  // 是否使用壁纸
     previewContainer: document.getElementById("previewContainer"),
+    imgInputFile: document.getElementById("file"),  // 选择本地壁纸文件
+    imgPreviewDiv: document.getElementById("preview"),
+    imgPreviewOverlayDiv: document.getElementById("previewOverlay"),
+    switchesContainer: document.getElementById("switchesContainer"),
     backgroundColorContainer: document.getElementById("backgroundColorContainer"),
-    largeTilesInput: document.getElementById("largeTiles"),
-    rememberGroupInput: document.getElementById("remembergroup"),
-    showTitlesInput: document.getElementById("showTitles"),
-    showCreateDialInput: document.getElementById("showCreateDial"),
-    showgroupsInput: document.getElementById("showgroups"),
-    showClockInput: document.getElementById("showClock"),   // 是否显示时钟
-    showSettingsBtnInput: document.getElementById("showSettingsBtn"),   // 是否显示设置按钮
-    settingsBtn: document.getElementById("settingsBtn"),
-    maxColsInput: document.getElementById("maxcols"),
-    defaultSortInput: document.getElementById("defaultSort"),
+    bgColorPicker: document.getElementById("color-picker"),
+    bgColorPicker_wrapper: document.getElementById("color-picker-wrapper"),
+    textColorPicker: document.getElementById("textColor-picker"),
+    textColorPicker_wrapper: document.getElementById("textColor-picker-wrapper"),
+    // largeTilesInput: document.getElementById("largeTiles"),
+    settingsBtn: document.getElementById("settingsBtn"),    // 设置按钮，点击打开设置侧边栏
+    defaultSortSelect: document.getElementById("defaultSort"),  // 书签默认排序方式
+    bookmarkSizeSelect: document.getElementById("bookmarkSize"),    // 书签大小
+    bookmarkRatioSelect: document.getElementById("dialRatio"),  // 书签形状
+    bookmarkMaxColsSelect: document.getElementById("maxcols"),  // 书签列数
+    showTitlesCheckbox: document.getElementById("showTitles"),  // 是否显示书签标题
+    showClockCheckbox: document.getElementById("showClock"),   // 是否显示时钟
+    showCreateBookmarkCheckbox: document.getElementById("showCreateDial"),  // 是否显示新增书签按钮+
+    showCreateGroupsCheckbox: document.getElementById("showgroups"),    // 是否显示新增分组按钮
+    rememberGroupCheckbox: document.getElementById("remembergroup"),    // 是否记住当前选择分组
     importExportBtn: document.getElementById("importExportBtn"),
     importExportStatus: document.getElementById('statusMessage'),
     exportBtn: document.getElementById("exportBtn"),
     importFileInput: document.getElementById("importFile"),
     importFileLabel: document.getElementById("importFileLabel"),
     helpBtn: document.getElementById("help"),
-    dialSizeInput: document.getElementById("dialSize"),
-    dialRatioInput: document.getElementById("dialRatio"),
 
-    searchInput: document.getElementById('searchInput'),
     searchContainer: document.getElementById('searchContainer'),
+    searchInput: document.getElementById('searchInput'),
 
     clock: document.getElementById('clock'),
 };

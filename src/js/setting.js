@@ -1,28 +1,47 @@
 import { DOM } from "./dom.js";
 import { state } from "./state.js"
 
-// 保存设置
-export function saveSettings(settings) {
-    settings.wallpaper = DOM.wallPaperEnabled.checked;
-    settings.wallpaperSrc = DOM.imgPreview.src;
-    settings.backgroundColor = DOM.color_picker.value;
-    settings.textColor = DOM.textColor_picker.value;
-    settings.showTitles = DOM.showTitlesInput.checked;
-    settings.showAddSite = DOM.showCreateDialInput.checked;
-    settings.largeTiles = DOM.largeTilesInput.checked;
-    settings.showgroups = DOM.showgroupsInput.checked;
-    settings.showClock = DOM.showClockInput.checked;
-    settings.showSettingsBtn = DOM.settingsBtn.checked;
-    settings.maxCols = DOM.maxColsInput.value;
-    settings.dialSize = DOM.dialSizeInput.value;
-    settings.dialRatio = DOM.dialRatioInput.value;
-    settings.defaultSort = DOM.defaultSortInput.value;
-    settings.rememberGroup = DOM.rememberGroupInput.checked;
+// 由页面 DOM 元素获得 setting 信息
+export function getSettingFromDOM(settings) {
+    console.log("getSettingFromDOM Settings before: ", settings);
+    settings.wallPaperEnable = DOM.wallPaperEnableCheckbox.checked;
+    settings.backgroundColor = DOM.bgColorPicker.value;
+    settings.textColor = DOM.textColorPicker.value;
+    settings.showTitles = DOM.showTitlesCheckbox.checked;
+    settings.showAddSiteBtn = DOM.showCreateBookmarkCheckbox.checked;
+    // settings.largeTiles = DOM.largeTilesInput.checked;
+    settings.showAddGroupsBtn = DOM.showCreateGroupsCheckbox.checked;
+    settings.showClock = DOM.showClockCheckbox.checked;
+    settings.maxCols = DOM.bookmarkMaxColsSelect.value;
+    settings.bookmarkSize = DOM.bookmarkSizeSelect.value;
+    settings.dialRatio = DOM.bookmarkRatioSelect.value;
+    settings.defaultSort = DOM.defaultSortSelect.value;
+    settings.rememberGroup = DOM.rememberGroupCheckbox.checked;
     settings.currentGroupId = state.currentGroupId;
+    console.log("getSettingFromDOM Settings after: ", settings);
+}
 
-    chrome.storage.local.set({ settings })
+// 保存设置
+export async function saveSettings(settings, wallpaperSrc, isGetSettingFromDOM = true) {
+    if (isGetSettingFromDOM)
+        getSettingFromDOM(settings);
+
+    let dataToSave = {
+        settings: settings
+    };
+
+    if (wallpaperSrc) {
+        console.log("wallpaperSrc saved before: ", state.wallpaperSrc.length < 100 ? state.wallpaperSrc : state.wallpaperSrc.substring(200, 20));
+        dataToSave.wallpaperSrc = wallpaperSrc;
+        console.log("wallpaperSrc saved after: ", wallpaperSrc.length < 100 ? wallpaperSrc : wallpaperSrc.substring(200, 20));
+    }
+
+    await chrome.storage.local.set(dataToSave)
         .then(() => {
-            console.log("Settings saved：", settings);
+            state.settings = settings;
+            if (wallpaperSrc) {
+                state.wallpaperSrc = wallpaperSrc;
+            }
             /*
             settingsToast.style.opacity = "1";
             setTimeout(function () {

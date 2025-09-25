@@ -44,7 +44,7 @@
     "dialRatio": {
       "message": "다이얼 형식"
     },
-    "dialSize": {
+    "bookmarkSize": {
       "message": "다이얼 크기"
     },
     "edit": {
@@ -100,7 +100,7 @@
     "newBackgroundTab": {
       "message": "새 백그라운드 탭에서 열기"
     },
-    "newDial": {
+    "newBookmark": {
       "message": "새로운 스피드 다이얼..."
     },
     "newgroup": {

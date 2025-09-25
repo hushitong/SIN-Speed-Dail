@@ -5,34 +5,39 @@
     依赖：导入 ui.js (渲染)、bookmarks.js (保存书签)、utils.js。
     注意：模态框变量（如 modal, createDialModal）可以作为模块常量。
 */
-import {DOM} from "./dom.js"
+import { DOM } from "./dom.js"
+import { state } from "./state.js";
+import { getThumbs } from "./bookmarks.js";
+import { setInputValue, rgbToHex, cssGradientToHex,filterDials } from "./utils.js";
+import { hideSettings } from "./ui.js";
 
 // 显示添加书签模态框
-export function buildCreateDialModal(parentId) {
-    createDialModalURL.value = '';
-    createDialModalURL.parentId = parentId ? parentId : selectedGroupId;
-    createDialModalURL.focus();
+export function buildCreateBookmarkModal(parentGroupId) {
+    DOM.createDialModalURL.value = '';
+    DOM.createDialModalURL.parentId = parentGroupId ? parentGroupId : state.selectedGroupId;
+    DOM.createDialModalURL.focus();
 }
 
-export async function buildModal(url, title) {
+// 显示编辑书签模态框
+export async function editBookmarkModal(url, title) {
     // nuke any previous modal
     let carousel = document.getElementById("carousel");
     if (carousel) {
-        modalImgContainer.removeChild(carousel);
+        DOM.modalImgContainer.removeChild(carousel);
     }
 
     let customCarousel = document.getElementById("customCarousel");
     if (customCarousel) {
-        modalImgContainer.removeChild(customCarousel);
+        DOM.modalImgContainer.removeChild(customCarousel);
     }
 
     let newCarousel = document.createElement('div');
     newCarousel.setAttribute('id', 'carousel');
-    modalImgContainer.appendChild(newCarousel);
+    DOM.modalImgContainer.appendChild(newCarousel);
 
     //let createdCarousel = document.getElementById('carousel');
-    modalTitle.value = title;
-    modalURL.value = url;
+    DOM.modalTitle.value = title;
+    DOM.modalURL.value = url;
     let images = await getThumbs(url);
     if (images && images.thumbnails.length) {
         // clunky af
@@ -51,7 +56,7 @@ export async function buildModal(url, title) {
             // todo: stop storing bg in gradient format jesus
             let bgColor = cssGradientToHex(images.bgColor);
             if (bgColor) {
-                setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                setInputValue(DOM.modalBgColorPickerInput, rgbToHex(bgColor))
             }
         }
 
@@ -181,13 +186,13 @@ export function addImage(image) {
         preview.setAttribute('src', image);
 
         customCarousel.appendChild(preview);
-        modalImgContainer.appendChild(customCarousel);
+        DOM.modalImgContainer.appendChild(customCarousel);
 
         // set the color picker to the new image bg color
         preview.onload = function () {
             let bgColor = getBgColor(preview);
             if (bgColor) {
-                setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                setInputValue(DOM.modalBgColorPickerInput, rgbToHex(bgColor))
             }
         };
     }

@@ -9,7 +9,7 @@
     "message": "添加网站按钮"
   },
   "addTo": {
-    "message": "添加到快速拨号"
+    "message": "添加到快速书签"
   },
   "backgroundColor": {
     "message": "背景颜色"
@@ -42,10 +42,10 @@
     "message": "删除"
   },
   "dialRatio": {
-    "message": "拨号格式"
+    "message": "书签格式"
   },
-  "dialSize": {
-    "message": "拨号大小"
+  "bookmarkSize": {
+    "message": "书签大小"
   },
   "edit": {
     "message": "编辑"
@@ -58,7 +58,7 @@
   },
   "extensionDescription": {
     "description": "description of the app, displayed in store",
-    "message": "适用于 Chrome、Edge 和 Firefox 的现代快速拨号"
+    "message": "适用于 Chrome、Edge 和 Firefox 的现代快速书签"
   },
   "extensionName": {
     "description": "title of the app, displayed in store",
@@ -100,8 +100,8 @@
   "newBackgroundTab": {
     "message": "在后台标签页打开"
   },
-  "newDial": {
-    "message": "新建快速拨号..."
+  "newBookmark": {
+    "message": "新建快速书签..."
   },
   "newgroup": {
     "message": "新建分组..."
@@ -110,13 +110,13 @@
     "message": "开始使用 Yet Another Speed Dial！"
   },
   "newInstall2": {
-    "message": "⭐ 只需将书签添加到快速拨号分组，它们就会出现在这里"
+    "message": "⭐ 只需将书签添加到快速书签分组，它们就会出现在这里"
   },
   "newInstall3": {
     "message": "✨ 您可以将书签整理到子分组中"
   },
   "newInstall4": {
-    "message": "✨ 右键单击拨号以编辑它。您还可以拖放以重新排列"
+    "message": "✨ 右键单击书签以编辑它。您还可以拖放以重新排列"
   },
   "newPrivate": {
     "message": "在新的无痕窗口中打开"
@@ -161,12 +161,12 @@
     "message": "标题"
   },
   "title": {
-    "message": "快速拨号"
+    "message": "快速书签"
   },
   "uploadImage": {
     "message": "添加图片..."
   },
   "wallpaper": {
-    "message": "壁纸"
+    "message": "使用壁纸"
   }
 }

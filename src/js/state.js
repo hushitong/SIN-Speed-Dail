@@ -9,6 +9,8 @@ const homeGroupId = 'home';
 export let state = {
     data: {},
     settings: null,
+    wallpaperSrc: null, // 存储背景图地址
+    defaultWallpaperSrc: "img/bg.jpg",  // 背景图默认地址
     currentGroupId: null,
     selectedGroupId: null,
 
@@ -20,21 +22,19 @@ export let state = {
     },
 
     // 默认设置
-    defaults : {
-        wallpaper: true,
-        wallpaperSrc: 'img/bg.jpg',
-        backgroundColor: '#111111',
-        largeTiles: true,
+    defaults: {
+        wallPaperEnable: true,
+        backgroundColor: '#242B05',
+        textColor: '#ffffff',
+        // largeTiles: true,
         rememberGroup: false,
         showTitles: true,
-        showAddSite: true,
-        showgroups: true,
-        showSettingsBtn: true,
+        showAddSiteBtn: true,
+        showAddGroupsBtn: true,
         showClock: true,
         maxCols: '100',
         defaultSort: 'first',
-        textColor: '#ffffff',
-        dialSize: 'medium',
+        bookmarkSize: 'medium',
         dialRatio: 'wide',
         currentGroupId: homeGroupId,
     },

@@ -2,8 +2,8 @@ import { state } from "./state.js"
 import { DOM } from "./dom.js"
 import { getData, saveData } from "./data.js"
 import { generateId } from "./utils.js";
-import { hideModals } from "./modals.js";
-import { showToast,animate } from "./ui.js";
+import { hideModals,buildCreateBookmarkModal,modalShowEffect } from "./modals.js";
+import { showToast,animate,hideSettings } from "./ui.js";
 import { onMoveHandler,onEndHandler } from "./events.js";
 
 function rectifyUrl(url) {
@@ -56,7 +56,7 @@ export async function saveNewBookmark(groupId, url, title) {
 
 // function getBookmarks(groupId) {
 //     chrome.bookmarks.getChildren(groupId).then(result => {
-//         if (groupId === selectedGroupId && !result.length && settings.showgroups) {
+//         if (groupId === selectedGroupId && !result.length && settings.showAddGroupsBtn) {
 //             //noBookmarks.style.display = 'block';
 //             addGroupButton.style.display = 'none';
 //         }
@@ -133,11 +133,11 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
     }
 
     // 添加“新建书签”按钮
-    let newDialButton = createNewBookmarkButton(selectedGroupId);
+    let newBookmarkButton = createNewBookmarkButton(selectedGroupId);
     if (state.settings.defaultSort !== "first") {
-        fragment.appendChild(newDialButton);
+        fragment.appendChild(newBookmarkButton);
     } else {
-        fragment.insertBefore(newDialButton, fragment.firstChild);
+        fragment.insertBefore(newBookmarkButton, fragment.firstChild);
     }
 
     // 假如原分组容器不存在，构建指定分组容器，用于放置书签
@@ -202,12 +202,12 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
 
 // 创建添加书签按钮+
 function createNewBookmarkButton(groupId) {
-    let aNewDial = document.createElement('a');
-    aNewDial.classList.add('tile', 'createDial');
-    aNewDial.onclick = () => {
+    let anewBookmark = document.createElement('a');
+    anewBookmark.classList.add('tile', 'createDial');
+    anewBookmark.onclick = () => {
         hideSettings();
-        buildCreateDialModal(groupId);
-        modalShowEffect(createDialModalContent, createDialModal);
+        buildCreateBookmarkModal(groupId);
+        modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
     };
 
     let main = document.createElement('div');
@@ -216,9 +216,9 @@ function createNewBookmarkButton(groupId) {
     let content = document.createElement('div');
     content.classList.add('tile-content', 'createDial-content');
     main.appendChild(content);
-    aNewDial.appendChild(main);
+    anewBookmark.appendChild(main);
 
-    return aNewDial;
+    return anewBookmark;
 
     // 最终生成的数据 example:
     // <a class="tile createDial" style="transform: matrix(1, 0, 0, 1, 0, 0);">
@@ -291,10 +291,10 @@ export function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, n
 
 // 删除书签
 export async function removeBookmark(id) {
-    data = await getData();
+    state.data = await getData();
 
     // 过滤掉要删除的书签
-    const updatedBookmarks = data.bookmarks.filter(bookmark => bookmark.id !== id);
+    const updatedBookmarks = state.data.bookmarks.filter(bookmark => bookmark.id !== id);
 
     // 保存更新后的书签数组
     return new Promise((resolve) => {
@@ -311,7 +311,9 @@ export async function removeBookmark(id) {
 ///////////////////////////////////////////////////////////////
 // 书签缩略图相关
 ///////////////////////////////////////////////////////////////
-function getThumbs(bookmarkUrl) {
+
+// 根据书签url，到本地存储找对应的缩略图
+export function getThumbs(bookmarkUrl) {
     return chrome.storage.local.get(bookmarkUrl)
         .then(result => {
             if (result[bookmarkUrl]) {

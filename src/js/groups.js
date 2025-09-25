@@ -1,7 +1,12 @@
 import { state } from "./state.js"
 import { DOM } from "./dom.js"
-import { dragenterHandler,dragleaveHandler } from "./events.js";
+import { dragenterHandler, dragleaveHandler } from "./events.js";
 import { printBookmarksByGroupId } from "./bookmarks.js";
+import { generateId } from "./utils.js";
+import { saveData } from "./data.js"
+import { showToast, animate, hideSettings } from "./ui.js";
+import { hideModals } from "./modals.js";
+import { reBuildGroupPages } from "./ui.js"
 
 // 显示某个分组
 // 仅修改样式，不重新加载数据再绘制
@@ -12,7 +17,7 @@ export function showGroup(groupId) {
         if (group.id === groupId) {
             group.style.display = "flex"
             group.style.opacity = "0";
-            layoutgroup = true;
+            state.layoutgroup = true;
             // transition between groups. todo more elegant solution
             setTimeout(function () {
                 group.style.opacity = "1";
@@ -78,7 +83,7 @@ export function groupLink(groupTitle, groupId) {
 // 添加分组
 export function createGroup() {
     let name = DOM.createGroupModalName.value.trim();
-    const orgGroupCount = data.groups.length;
+    const orgGroupCount = state.data.groups.length;
     const id = "G." + generateId();
     state.data.groups.push({ id: id, title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
 

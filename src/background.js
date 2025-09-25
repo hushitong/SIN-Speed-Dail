@@ -393,6 +393,7 @@ async function getThumbnails(url, id, groupId, options = {quickRefresh: false, f
 }
 
 async function saveThumbnails(url, id, groupId, images, bgColor, forcePageReload=false) {
+	console.log("bg saveThumbnails");
 	if (images && images.length) {
 		let thumbnails = [];
 		let result = await chrome.storage.local.get(url)

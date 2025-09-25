@@ -44,7 +44,7 @@
   "dialRatio": {
     "message": "Dial Format"
   },
-  "dialSize": {
+  "bookmarkSize": {
     "message": "Dial Size"
   },
   "edit": {
@@ -100,7 +100,7 @@
   "newBackgroundTab": {
     "message": "Abrir na guia em segundo plano"
   },
-  "newDial": {
+  "newBookmark": {
     "message": "Nova discagem rápida..."
   },
   "newgroup": {

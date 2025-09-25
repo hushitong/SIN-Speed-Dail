@@ -2,12 +2,17 @@
     目的：集中所有事件处理，避免散乱。
 */
 import { DOM } from "./dom.js";
-import {parseJson, resizeBackground, filterDials } from "./utils.js";
-import { saveSettings,
+import { parseJson, resizeBackground, filterDials, setInputValue } from "./utils.js";
+import {
+    saveSettings, getSettingFromDOM,
     importFromSD2, importFromFVD, importFromYASD, importFromOldYASD
 } from "./setting.js";
-import { showContextMenu, hideMenus, hideSettings, openSettings, applySettings, hideToast, processRefresh } from "./ui.js";
-import { addGroupBtn, buildModal, addImage, modalShowEffect, buildCreateDialModal,hideModals } from "./modals.js"
+import {
+    showContextMenu, hideMenus, hideSettings, openSettings,
+    applySettings, applyBackgroundChanged, applyWallpaperEnableChanged, applyBookmarkRelatedChanged, applyOtherChanged,
+    hideToast, processRefresh, layout
+} from "./ui.js";
+import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
     saveBookmarkSettings,
     createDial, removeBookmark, moveBookmark,
@@ -24,28 +29,13 @@ const helpUrl = 'https://conceptualspace.github.io/yet-another-speed-dial/';
 const reader = new FileReader();    // 用于读取用户上传的图片文件
 let resizing = false;   // 标记是否正在执行窗口 / 元素大小调整操作，用于避免调整过程中重复触发某些逻辑（如布局计算）
 
+// 初始化事件绑定
 export function initEvents() {
-    reader.onload = function (e) {
-        resizeBackground(e.target.result).then(imagedata => {
-            DOM.imgPreview.setAttribute('src', imagedata);
-            DOM.imgPreview.style.display = 'block';
-            // dynamically set text color based on background
-            /*
-            getAverageRGB(imagedata).then(rgb => {
-                let textColor = contrast(rgb);
-                settings.textColor = textColor
-                document.documentElement.style.setProperty('--color', textColor);
-            });
-             */
-            // saveSettings(state.settings);
-            // applySettings(state.settings);
-        })
-    };
-
+    console.log("initEvents start");
     // 监听来自后台的消息
     chrome.runtime.onMessage.addListener(handleMessages);
 
-    // override context menu
+    // 替代右键菜单
     document.addEventListener("contextmenu", function (e) {
         if (e.target.type === 'text' && (e.target.id === 'modalTitle' || e.target.id === 'modalURL' || e.target.id === 'modalImageURLInput' || e.target.id === 'createDialModalURL')) {
             return;
@@ -90,7 +80,7 @@ export function initEvents() {
     window.addEventListener("mousedown", e => {
         console.log(e.target);
         hideMenus();
-        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'dialSize' || e.target.id === 'dialRatio') {
+        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'bookmarkSize' || e.target.id === 'dialRatio') {
             return
         }
         if (e.target.className.baseVal === 'gear') {
@@ -99,7 +89,7 @@ export function initEvents() {
         }
         if (e.target.closest('#splashAddDial')) {
             e.preventDefault();
-            buildCreateDialModal(state.currentGroupId);
+            buildCreateBookmarkModal(state.currentGroupId);
             modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
             return;
         }
@@ -143,8 +133,14 @@ export function initEvents() {
                     case 'newPrivate':
                         chrome.windows.create({ "url": state.targetTileHref, "incognito": true });
                         break;
+                    case 'newBookmark':
+                        // prevent default required to stop focus from leaving the modal input
+                        e.preventDefault();
+                        buildCreateBookmarkModal(state.currentGroupId);
+                        modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
+                        break;
                     case 'edit':
-                        buildModal(state.targetTileHref, state.targetTileTitle).then(() => {
+                        editBookmarkModal(state.targetTileHref, state.targetTileTitle).then(() => {
                             modalShowEffect(DOM.modalContent, DOM.modal);
                         });
                         break;
@@ -155,8 +151,11 @@ export function initEvents() {
                         modalShowEffect(DOM.refreshAllModalContent, DOM.refreshAllModal);
                         break;
                     case 'delete':
-                        console.log("deleting " + e.target);
                         removeBookmark(targetTileId.split('-')[1]);
+                        break;
+                    case 'newgroup':
+                        e.preventDefault();
+                        addGroupBtn();
                         break;
                     case 'editgroup':
                         DOM.editgroupModalName.value = targetGroupName;
@@ -166,16 +165,7 @@ export function initEvents() {
                         DOM.deletegroupModalName.textContent = targetGroupName;
                         modalShowEffect(DOM.deletegroupModalContent, DOM.deleteGroupModal);
                         break;
-                    case 'newDial':
-                        // prevent default required to stop focus from leaving the modal input
-                        e.preventDefault();
-                        buildCreateDialModal(state.currentGroupId);
-                        modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
-                        break;
-                    case 'newgroup':
-                        e.preventDefault();
-                        addGroupBtn();
-                        break;
+
                 }
                 break;
             default:
@@ -183,18 +173,20 @@ export function initEvents() {
         }
     });
 
+    // 键盘下压事件
     window.addEventListener("keydown", event => {
         if (event.code === "Escape") {
             hideMenus();
             hideModals();
         } else if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
             event.preventDefault(); // Prevent the default browser behavior
-            searchContainer.classList.toggle('active');
+            DOM.searchContainer.classList.toggle('active');
             // focus it
-            setTimeout(() => searchInput.focus(), 200); // cant focus it immediate with the transition, Delay focus to ensure visibility
+            setTimeout(() => DOM.searchInput.focus(), 200); // cant focus it immediate with the transition, Delay focus to ensure visibility
         }
     });
 
+    // 窗口大小调整
     window.addEventListener('resize', onResize);
 
     DOM.modalSave.addEventListener("click", saveBookmarkSettings);
@@ -207,9 +199,9 @@ export function initEvents() {
 
     Array.from(DOM.closeModal).forEach(button => {
         button.onclick = function (e) {
-                e.preventDefault();
-                hideModals();
-            };
+            e.preventDefault();
+            hideModals();
+        };
     });
 
     DOM.modalTitle.addEventListener('keydown', e => {
@@ -232,6 +224,152 @@ export function initEvents() {
             createDial();
         }
     });
+
+    // 书签形状
+    DOM.bookmarkRatioSelect.oninput = function (e) {
+        saveSettings(state.settings);
+        applyBookmarkRelatedChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 书签最大列数
+    DOM.bookmarkMaxColsSelect.oninput = function (e) {
+        saveSettings(state.settings);
+        applyBookmarkRelatedChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 书签大小
+    DOM.bookmarkSizeSelect.oninput = function (e) {
+        saveSettings(state.settings);
+        applyBookmarkRelatedChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 书签默认排序方式
+    DOM.defaultSortSelect.oninput = function (e) {
+        if (state.settings.defaultSort !== DOM.defaultSortSelect.value) {
+            processRefresh();
+            saveSettings(state.settings);
+            // applySettings(state.settings);
+        }
+    }
+
+    // 背景颜色取色器
+    DOM.bgColorPicker.onchange = function () {
+        DOM.bgColorPicker_wrapper.style.backgroundColor = DOM.bgColorPicker.value;
+        saveSettings(state.settings);
+        applyBackgroundChanged(false);
+        // applySettings(state.settings);
+    };
+
+    // 选择文本颜色
+    DOM.textColorPicker.onchange = function () {
+        DOM.textColorPicker_wrapper.style.backgroundColor = DOM.textColorPicker.value;
+        if (state.settings.textColor !== DOM.textColorPicker.value) {
+            saveSettings(state.settings);
+            applyOtherChanged(state.settings);
+            // applySettings(state.settings);
+        }
+    };
+
+    // 是否显示书签标题
+    DOM.showTitlesCheckbox.oninput = function (e) {
+        saveSettings(state.settings);
+        applyOtherChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 是否显示添加书签按钮
+    DOM.showCreateBookmarkCheckbox.oninput = function (e) {
+        saveSettings(state.settings);
+        applyOtherChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 是否显示添加分组按钮
+    DOM.showCreateGroupsCheckbox.oninput = function (e) {
+        saveSettings(state.settings);
+        applyOtherChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 是否显示时钟
+    DOM.showClockCheckbox.oninput = function (e) {
+        saveSettings(state.settings);
+        applyOtherChanged(state.settings);
+        // applySettings(state.settings);
+    }
+
+    // 是否记住上次分组
+    DOM.rememberGroupCheckbox.oninput = function (e) {
+        // 暂时没效果，打算去除
+        saveSettings(state.settings);
+        // applySettings(state.settings);
+    }
+
+    DOM.imgPreviewOverlayDiv.onclick = function () {
+        DOM.imgInputFile.click();
+    }
+
+    // 是否使用背景图
+    DOM.wallPaperEnableCheckbox.oninput = function (e) {
+        console.log("DOM.wallPaperEnableCheckbox.oninput : ",e.target.checked);
+        saveSettings(state.settings, state.defaultWallpaperSrc);
+        applyWallpaperEnableChanged(true);
+        // applySettings(state.settings, null, true);
+    }
+
+    // file 选择了文件
+    DOM.imgInputFile.onchange = function () {
+        readURL(this);
+    };
+    function readURL(input) {
+        if (input.files && input.files[0]) {
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // todo：和 applySettings 后半段的 DOM.imgPreview.onload 及 DOM.imgPreview.onerror 这些有重复问题，后面再解决
+    // 图片文件读取完成
+    reader.onload = function (e) {
+        console.log("reader.onload");
+
+        // DOM.imgPreviewDiv.onload = function (e) {
+        //     console.log("DOM.imgPreview.onload");
+        //     // DOM.backgroundColorContainer.style.display = "flex";
+        //     // DOM.previewContainer.style.opacity = '0';
+        //     // DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
+
+        //     DOM.backgroundColorContainer.style.display = "none";
+        //     DOM.previewContainer.style.opacity = '1';
+        //     DOM.switchesContainer.style.transform = "translateY(0)";
+        // }
+        // DOM.imgPreviewDiv.onerror = function (e) {
+        //     console.log("DOM.imgPreview.onerror");
+        //     state.wallpaperSrc = state.defaultWallpaperSrc;
+        //     DOM.imgPreviewDiv.setAttribute('src', state.wallpaperSrc);
+        //     chrome.storage.local.set({ wallpaperSrc: state.wallpaperSrc });
+        // }
+
+        resizeBackground(e.target.result).then(imagedata => {
+            DOM.imgPreviewDiv.setAttribute('src', imagedata);
+            DOM.imgPreviewDiv.style.display = 'block';
+            // dynamically set text color based on background
+            /*
+            getAverageRGB(imagedata).then(rgb => {
+                let textColor = contrast(rgb);
+                settings.textColor = textColor
+                document.documentElement.style.setProperty('--color', textColor);
+            });
+             */
+            // state.settings = getSettingFromDOM(state.settings);
+            saveSettings(state.settings, imagedata);
+            // 能上传背景图，那使用背景图选项必然是 true
+            applyBackgroundChanged(true, imagedata);
+        })
+    };
+
 
     DOM.modalImgBtn.addEventListener('click', function () {
         document.getElementById('modalImgFile').click();
@@ -257,112 +395,25 @@ export function initEvents() {
         });
     }
 
-
-    DOM.maxColsInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.dialSizeInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.dialRatioInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.defaultSortInput.oninput = function (e) {
-        if (settings.defaultSort !== DOM.defaultSortInput.value) {
-            processRefresh();
-            saveSettings(state.settings);
-            applySettings(state.settings);
-        }
-    }
-
-    DOM.wallPaperEnabled.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.color_picker.onchange = function () {
-        DOM.color_picker_wrapper.style.backgroundColor = DOM.color_picker.value;
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    };
-
-    DOM.textColor_picker.onchange = function () {
-        DOM.textColor_picker_wrapper.style.backgroundColor = DOM.textColor_picker.value;
-        if (settings.textColor !== textColor_picker.value) {
-            saveSettings(state.settings);
-            applySettings(state.settings);
-        }
-    };
-
-    DOM.showTitlesInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.showCreateDialInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.showgroupsInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.showClockInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.rememberGroupInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.showSettingsBtnInput.oninput = function (e) {
-        saveSettings(state.settings);
-        applySettings(state.settings);
-    }
-
-    DOM.imgInput.onchange = function () {
-        readURL(this);
-    };
-
-    function readURL(input) {
-        if (input.files && input.files[0]) {
-            reader.readAsDataURL(input.files[0]);
-        }
-    }
-
-    DOM.previewOverlay.onclick = function () {
-        imgInput.click();
-    }
-
     // add image from url button clicked, show the input field
     DOM.modalImgUrlBtn.addEventListener('click', function (event) {
         event.preventDefault();
         document.getElementById('modalBtnContainer').style.display = 'none';
         document.getElementById('imageUrlContainer').style.display = 'flex';
-        modalImageURLInput.focus();
+        DOM.modalImageURLInput.focus();
     });
 
     DOM.closeImgUrlBtn.addEventListener('click', function (event) {
         event.preventDefault();
         document.getElementById('modalBtnContainer').style.display = 'flex';
         document.getElementById('imageUrlContainer').style.display = 'none';
-        modalImageURLInput.value = '';
+        DOM.modalImageURLInput.value = '';
     });
 
     // fetch the image from the url
     DOM.fetchImageButton.addEventListener('click', function (event) {
         event.preventDefault();
-        const imageUrl = modalImageURLInput.value.trim();
+        const imageUrl = DOM.modalImageURLInput.value.trim();
         if (imageUrl) {
             resizeThumb(imageUrl).then(resizedImage => {
                 addImage(resizedImage);
@@ -380,7 +431,7 @@ export function initEvents() {
             const eyeDropper = new EyeDropper();
             eyeDropper.open().then(result => {
                 const color = result.sRGBHex;
-                setInputValue(modalBgColorPickerInput, color);
+                setInputValue(DOM.modalBgColorPickerInput, color);
             }).catch(error => {
                 console.log('Error opening color picker:', error);
             });
@@ -392,7 +443,7 @@ export function initEvents() {
     DOM.modalBgColorPickerInput.addEventListener('input', function () {
         const color = this.value; // in hex
         // set the our button color to match
-        modalBgColorPreview.style.fill = color;
+        DOM.modalBgColorPreview.style.fill = color;
     });
 
     document.getElementById('closeSettingsBtn').addEventListener('click', () => {
@@ -401,10 +452,10 @@ export function initEvents() {
 
     DOM.importExportBtn.onclick = function () {
         hideSettings();
-        importExportStatus.innerText = "";
-        exportBtn.classList.add('disabled');
+        DOM.importExportStatus.innerText = "";
+        DOM.exportBtn.classList.add('disabled');
         prepareExport();
-        modalShowEffect(importExportModalContent, importExportModal);
+        modalShowEffect(DOM.importExportModalContent, DOM.importExportModal);
     }
 
     DOM.helpBtn.onclick = function () {
@@ -412,7 +463,7 @@ export function initEvents() {
     }
 
     DOM.importFileLabel.onclick = function () {
-        importFileInput.click();
+        DOM.importFileInput.click();
     }
 
     // Add event listener for search input
@@ -440,7 +491,7 @@ export function initEvents() {
             } catch (error) {
                 DOM.importExportStatus.innerText = "Error! Unable to parse file.";
             }
-            
+
             if (!json) return;
 
             // quiet the listeners so yasd doesnt go crazy
@@ -464,6 +515,7 @@ export function initEvents() {
             filereader.readAsText(event.target.files[0]);
         }
     };
+    console.log("initEvents End");
 }
 
 // todo: completely offload this shit to the worker
@@ -535,6 +587,9 @@ function onResize() {
     }
 }
 
+// Sortable 拖拽排序事件结束后的处理函数
+// 用于 书签列表 和 分组列表 拖拽排序
+// todo: 需要修改完善
 export function onEndHandler(evt) {
     if (evt && evt.clone.href) {
         let id = evt.clone.dataset.id;

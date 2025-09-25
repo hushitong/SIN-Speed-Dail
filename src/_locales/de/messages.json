@@ -44,7 +44,7 @@
   "dialRatio": {
     "message": "Dial Format"
   },
-  "dialSize": {
+  "bookmarkSize": {
     "message": "Dial Size"
   },
   "edit": {
@@ -100,7 +100,7 @@
   "newBackgroundTab": {
     "message": "Im Hintergrund-Tab öffnen"
   },
-  "newDial": {
+  "newBookmark": {
     "message": "Neue Kurzwahl..."
   },
   "newgroup": {

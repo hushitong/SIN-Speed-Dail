@@ -1,16 +1,17 @@
 import { DOM } from "./dom.js";
 import { state } from "./state.js";
 import { getData, saveData } from "./data.js";
-import { groupsLinks,groupLink } from "./groups.js";
+import { groupsLinks, groupLink } from "./groups.js";
 import { printBookmarksByGroupId as displayGroupBookmarksByGroupId } from "./bookmarks.js";
+import { resizeBackground } from "./utils.js";
 
 let windowSize = null;  // 设计用于存储窗口大小信息?
 let isToastVisible = false; // 标记提示框（toast）是否可见
 let containerSize = null;   // 设计用于存储容器（如书签容器）的尺寸信息
 let boxes = [];
 
-// 建立分组页面，初始进入页面时使用
-export async function buildDialPages(selectedGroupId) {
+// 建立整个书签页面，包括 分组标题列表 和 书签内容列表
+export async function buildPages(selectedGroupId) {
     // 获得 bookmarks 和 groups 数据
     state.data = await getData();
     console.log(state.data);
@@ -23,13 +24,12 @@ export async function buildDialPages(selectedGroupId) {
             console.log("No groups found, added home group");
             state.data.groups = groups;
         });
-
-        // 如果没有分组和书签，则显示初始设置界面
-        if (state.data.bookmarks.length === 0) {
-            DOM.addGroupButton.style.display = 'none';
-            printNewSetup();
-            return;
-        }
+    }
+    // 如果只有home分组然后没有书签，则显示初始设置界面
+    if (groups.length === 1 && state.data.bookmarks.length === 0) {
+        DOM.addGroupButton.style.display = 'none';
+        printNewSetupPage();
+        return;
     }
 
     // 分组多于1，根据 position 进行排序
@@ -64,7 +64,7 @@ export async function reBuildGroupPages(inData = null) {
 
     if (!bookmarks.length) {
         DOM.addGroupButton.style.display = 'none';
-        printNewSetup();
+        printNewSetupPage();
         return;
     }
 
@@ -83,13 +83,12 @@ export async function reBuildGroupPages(inData = null) {
     return
 }
 
-// 显示初始设置界面
-export async function printNewSetup() {
+// 没有任何书签时，显示初始界面
+export async function printNewSetupPage() {
     let fragment = document.createDocumentFragment();
 
-    // Ensure the container exists
+
     let groupContainerEl = document.getElementById(state.selectedGroupId);
-    console.log("new install，@speedDialId:", state.selectedGroupId);
     if (!groupContainerEl) {
         groupContainerEl = document.createElement('div');
         groupContainerEl.id = state.selectedGroupId;
@@ -135,7 +134,7 @@ export async function printNewSetup() {
     DOM.bookmarksContainerParent.scrollTop = state.scrollPos;
 }
 
-
+// 显示自定义右键菜单
 export function showContextMenu(el, top, left) {
     if ((document.body.clientWidth - left) < (el.clientWidth + 30)) {
         el.style.left = (left - el.clientWidth) + 'px';
@@ -151,6 +150,7 @@ export function showContextMenu(el, top, left) {
     el.style.opacity = "1";
 }
 
+// 隐藏自定义右键菜单
 export function hideMenus() {
     let menus = [DOM.menu, DOM.settingsMenu, DOM.groupMenu]
     for (let el of menus) {
@@ -159,17 +159,19 @@ export function hideMenus() {
     }
 }
 
-
+// 显示设定页
 export function openSettings() {
     DOM.sidenav.style.boxShadow = "0px 2px 8px 0px rgba(0,0,0,0.5)";
     DOM.sidenav.style.transform = "translateX(0%)";
 }
 
+// 隐藏设定页
 export function hideSettings() {
     DOM.sidenav.style.transform = "translateX(100%)";
     DOM.sidenav.style.boxShadow = "none";
 }
 
+// 显示提示
 export function hideToast() {
     if (isToastVisible) {
         DOM.toast.style.transform = "translateX(100%)";
@@ -178,6 +180,7 @@ export function hideToast() {
     }
 }
 
+// 隐藏提示
 export function showToast(message) {
     if (!isToastVisible) {
         DOM.toastContent.innerText = message;
@@ -185,7 +188,6 @@ export function showToast(message) {
         isToastVisible = true;
     }
 }
-
 
 // 抖动
 export const debounce = (func, delay = 500, immediate = false) => {
@@ -233,182 +235,267 @@ export const animate = debounce(() => {
 
 // 进行页面刷新
 export const processRefresh = debounce(({ groupsOnly = false } = {}) => {
+    console.log("processRefresh start: processRefresh ", groupsOnly);
     if (groupsOnly) {
         reBuildGroupPages()
     } else {
         // prevent page scroll on refresh
         // react where are you...
-        state.scrollPos = bookmarksContainerParent.scrollTop;
+        state.scrollPos = DOM.bookmarksContainerParent.scrollTop;
         //noBookmarks.style.display = 'none';
-        addGroupButton.style.display = 'inline';
+        DOM.addGroupButton.style.display = 'inline';
 
         //bookmarksContainer.style.opacity = "0";
 
-        buildDialPages(currentGroupId)
+        buildPages(state.currentGroupId)
     }
 }, 650, true);
 
-// 根据设置应用样式
-export function applySettings(settings) {
+// 根据设置设定界面样式
+export function applySettings(settings = null, wallpaperSrc = null, wallpaperCheckboxChanged = false, wallpaperSrcChanged = false) {
+    console.log("applySettings settings: ", settings);
+
     return new Promise(function (resolve, reject) {
-        // apply settings to speed dial
+        DOM.settingsBtn.style.setProperty('--settings', 'block');
 
-        if (settings.wallpaper && settings.wallpaperSrc) {
-            // perf hack for default gradient bg image. user selected images are data URIs
-            if (settings.wallpaperSrc.length < 65) {
-                document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
-            } else {
-                document.body.style.background = `url("${settings.wallpaperSrc}") no-repeat top center fixed`;
-                document.body.style.backgroundSize = 'cover';
-            }
-        } else {
-            document.body.style.background = settings.backgroundColor;
-        }
+        // 提前确定 Promise 的最终状态为 fulfilled，然后继续执行下面代码（后面代码通常是比较耗时且不会影响最终结果的）
+        // 能使调用方提前知道结果执行后面代码
+        resolve();
 
-        if (settings.textColor) {
-            document.documentElement.style.setProperty('--color', settings.textColor);
-        }
+        // setDOM(settings);
+    });
+};
 
-        if (settings.maxCols && settings.maxCols !== "100") {
-            //todo cleanup - fixed values
-            let dialWidth = 220;
-            let dialMargin = 18 * 2; // 18px on each side
+// 页面初始化使用，根据设置设定界面样式
+export function initSettings(settings, wallpaperSrc) {
+    console.log("initSettings settings: ", settings);
 
-            switch (settings.dialSize) {
-                case "large":
-                    dialWidth = 256;
-                    break;
-                case "small":
-                    dialWidth = 178;
-                    break;
-                case "x-small":
-                    dialWidth = 130;
-                    break;
-                default:
-                    dialWidth = 220;
-            }
+    return new Promise(function (resolve, reject) {
+        DOM.settingsBtn.style.setProperty('--settings', 'block');
 
-            const containerWidth = settings.maxCols * (dialWidth + dialMargin);
-            document.documentElement.style.setProperty('--columns', `${containerWidth}px`);
-            layout();
-        } else {
-            document.documentElement.style.setProperty('--columns', '100%');
-            layout();
-        }
-
-        if (settings.dialSize && settings.dialSize !== "medium") {
-            let dialWidth, dialHeight, dialContentHeight;
-            switch (settings.dialSize) {
-                case "large":
-                    dialWidth = '256px';
-                    dialHeight = settings.dialRatio === "square" ? '274px' : '162px';
-                    dialContentHeight = settings.dialRatio === "square" ? '256px' : '144px';
-                    break;
-                case "small":
-                    dialWidth = '178px';
-                    dialHeight = settings.dialRatio === "square" ? '196px' : '118px';
-                    dialContentHeight = settings.dialRatio === "square" ? '178px' : '100px';
-                    break;
-                case "x-small":
-                    dialWidth = '130px';
-                    dialHeight = settings.dialRatio === "square" ? '148px' : '100px';
-                    dialContentHeight = settings.dialRatio === "square" ? '130px' : '82px';
-                    break;
-                default:
-                    dialWidth = '220px';
-                    dialHeight = settings.dialRatio === "square" ? '238px' : '142px';
-                    dialContentHeight = settings.dialRatio === "square" ? '220px' : '124px';
-            }
-            document.documentElement.style.setProperty('--dial-width', dialWidth);
-            document.documentElement.style.setProperty('--dial-height', dialHeight);
-            document.documentElement.style.setProperty('--dial-content-height', dialContentHeight);
-        } else {
-            document.documentElement.style.setProperty('--dial-width', '220px');
-            if (settings.dialRatio === "square") {
-                document.documentElement.style.setProperty('--dial-height', '238px');
-                document.documentElement.style.setProperty('--dial-content-height', '220px');
-            } else {
-                document.documentElement.style.setProperty('--dial-height', '142px');
-                document.documentElement.style.setProperty('--dial-content-height', '124px');
-            }
-        }
-
-        if (settings.showgroups) {
-            document.documentElement.style.setProperty('--show-groups', 'inline');
-        } else {
-            document.documentElement.style.setProperty('--show-groups', 'none');
-        }
-
-        if (settings.showClock) {
-            DOM.clock.style.setProperty('--clock', 'block');
-        } else {
-            DOM.clock.style.setProperty('--clock', 'none');
-        }
-
-        if (settings.showSettingsBtn) {
-            DOM.settingsBtn.style.setProperty('--settings', 'block');
-        } else {
-            DOM.settingsBtn.style.setProperty('--settings', 'none');
-        }
-
-        if (!settings.showTitles) {
-            document.documentElement.style.setProperty('--title-opacity', '0');
-        } else {
-            document.documentElement.style.setProperty('--title-opacity', '1');
-        }
-
-        if (!settings.showAddSite) {
-            document.documentElement.style.setProperty('--create-dial-display', 'none');
-        } else {
-            document.documentElement.style.setProperty('--create-dial-display', 'block');
-        }
-
+        applyBookmarkRelatedChanged(initSettings);
+        applyOtherChanged(initSettings);
 
         resolve();
 
-        // populate settings nav
-        DOM.wallPaperEnabled.checked = settings.wallpaper;
-        DOM.color_picker.value = settings.backgroundColor;
-        DOM.color_picker_wrapper.style.backgroundColor = settings.backgroundColor;
-        DOM.textColor_picker.value = settings.textColor;
-        DOM.textColor_picker_wrapper.style.backgroundColor = settings.textColor;
-        DOM.showTitlesInput.checked = settings.showTitles;
-        DOM.showCreateDialInput.checked = settings.showAddSite;
-        DOM.largeTilesInput.checked = settings.largeTiles;
-        DOM.showgroupsInput.checked = settings.showgroups;
-        DOM.showClockInput.checked = settings.showClock;
-        DOM.showSettingsBtnInput.checked = settings.showSettingsBtn;
-        DOM.maxColsInput.value = settings.maxCols;
-        DOM.dialSizeInput.value = settings.dialSize;
-        DOM.dialRatioInput.value = settings.dialRatio;
-        DOM.defaultSortInput.value = settings.defaultSort;
-        DOM.rememberGroupInput.checked = settings.rememberGroup;
+        applyBackgroundChanged(settings.wallPaperEnable, wallpaperSrc);
+    });
+}
 
-        if (settings.wallpaperSrc) {
-            DOM.imgPreview.setAttribute('src', settings.wallpaperSrc);
-            //imgPreview.style.display = 'block';
-            DOM.imgPreview.onload = function (e) {
-                if (settings.wallpaper) {
-                    DOM.backgroundColorContainer.style.display = "none";
-                    DOM.previewContainer.style.opacity = '1';
-                    DOM.switchesContainer.style.transform = "translateY(0)";
+// 根据 settings 设置 DOM
+function setDOM(settings) {
+    // 设置侧边栏
+    // DOM.wallPaperEnableCheckbox.checked = settings.wallPaperEnable;
+    // DOM.bgColorPicker.value = settings.backgroundColor;
+    // DOM.bgColorPicker_wrapper.style.backgroundColor = settings.backgroundColor;
+    // DOM.textColorPicker.value = settings.textColor;
+    // DOM.textColorPicker_wrapper.style.backgroundColor = settings.textColor;
+    // DOM.showTitlesCheckbox.checked = settings.showTitles;
+    // DOM.showCreateBookmarkCheckbox.checked = settings.showAddSiteBtn;
+    // // DOM.largeTilesInput.checked = settings.largeTiles;
+    // DOM.showCreateGroupsCheckbox.checked = settings.showAddGroupsBtn;
+    // DOM.showClockCheckbox.checked = settings.showClock;
+    // DOM.bookmarkMaxColsSelect.value = settings.maxCols;
+    // DOM.bookmarkSizeSelect.value = settings.bookmarkSize;
+    // DOM.bookmarkRatioSelect.value = settings.dialRatio;
+    // DOM.defaultSortSelect.value = settings.defaultSort;
+    // DOM.rememberGroupCheckbox.checked = settings.rememberGroup;
+}
 
-                    //backgroundColorContainer.style.display = 'none';
-                } else {
-                    DOM.backgroundColorContainer.style.display = "flex";
-                    DOM.previewContainer.style.opacity = '0';
-                    DOM.switchesContainer.style.transform = `translateY(-${previewContainer.offsetHeight}px)`;
-                }
-            }
-            DOM.imgPreview.onerror = function (e) {
-                // reset to default on error with user image
-                settings.wallpaperSrc = 'img/bg.jpg';
-                DOM.imgPreview.setAttribute('src', settings.wallpaperSrc);
-                chrome.storage.local.set({ settings });
-            }
+// ImgPreviewDiv 相关事件绑定
+function bindImgPreviewDivEvents() {
+    console.log("bindImgPreviewDivEvents start");
+    DOM.imgPreviewDiv.onload = function (e) {
+        console.log("bindImgPreviewDivEvents DOM.imgPreviewDiv.onload");
+        if (e.target.src.length < 65) {
+            document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
+        } else {
+            document.body.style.background = `url("${e.target.src}") no-repeat top center fixed`;
+            document.body.style.backgroundSize = 'cover';
         }
 
-    });
+        DOM.backgroundColorContainer.style.display = "none";
+        DOM.previewContainer.style.opacity = '1';
+        DOM.switchesContainer.style.transform = "translateY(0)";
+    }
+    DOM.imgPreviewDiv.onerror = function (e) {
+        console.log("bindImgPreviewDivEvents DOM.imgPreviewDiv.onerror");
+        state.wallpaperSrc = state.defaultWallpaperSrc;
+        DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
+        chrome.storage.local.set({ wallpaperSrc: state.defaultWallpaperSrc });
+    }
+}
+
+// 设置背景图或背景颜色
+export function applyBackgroundChanged(wallPaperEnable, wallpaperSrc) {
+    console.log("applyWallpaperSrcChanged wallPaperEnable: ", wallPaperEnable);
+    console.log("applyWallpaperSrcChanged wallpaperSrc: ", wallpaperSrc?.length < 100 ? wallpaperSrc : wallpaperSrc?.substring(200, 20));
+    // 启用背景图并且上传了背景图
+    if (wallPaperEnable && wallpaperSrc) {
+        // DOM.imgPreviewDiv.onload = function (e) {
+        //     if (wallpaperSrc.length < 65) {
+        //         document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
+        //     } else {
+        //         document.body.style.background = `url("${wallpaperSrc}") no-repeat top center fixed`;
+        //         document.body.style.backgroundSize = 'cover';
+        //     }
+        // }
+        // DOM.imgPreviewDiv.onerror = function (e) {
+        //     state.wallpaperSrc = state.defaultWallpaperSrc;
+        //     DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
+        //     chrome.storage.local.set({ wallpaperSrc: state.defaultWallpaperSrc });
+        // }
+        bindImgPreviewDivEvents();
+
+        DOM.imgPreviewDiv.setAttribute('src', wallpaperSrc);
+        DOM.imgPreviewDiv.style.display = 'block';
+        DOM.previewContainer.style.opacity = '1';
+    }
+    else {
+        document.body.style.background = DOM.bgColorPicker.value;
+    }
+}
+
+// "是否显示背景图"checkbox变更
+export function applyWallpaperEnableChanged(isWallpaperCheckboxChanged) {
+    console.log("applyWallpaperEnableChanged isWallpaperCheckboxChanged: ", isWallpaperCheckboxChanged);
+    if (isWallpaperCheckboxChanged) {
+        // 由不显示背景图 变为 显示背景图
+        // 1. 不显示背景色取色器、显示背景图选择器
+        // 2. 设置背景src为初始背景
+        // 3. 背景变为初始背景
+        if (DOM.wallPaperEnableCheckbox.checked === true) {
+            // DOM.imgPreviewDiv.onload = function (e) {
+            //     if (e.target.src.length < 65) {
+            //         document.body.style.background = `linear-gradient(135deg, #4387a2, #5b268d)`;
+            //     } else {
+            //         document.body.style.background = `url("${e.target.src}") no-repeat top center fixed`;
+            //         document.body.style.backgroundSize = 'cover';
+            //     }
+            // }
+            // DOM.imgPreviewDiv.onerror = function (e) {
+            //     state.wallpaperSrc = state.defaultWallpaperSrc;
+            //     DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
+            //     chrome.storage.local.set({ wallpaperSrc: state.defaultWallpaperSrc });
+            // }
+            bindImgPreviewDivEvents();
+
+            DOM.backgroundColorContainer.style.display = "none";
+            DOM.previewContainer.style.opacity = '1';
+            DOM.switchesContainer.style.transform = "translateY(0)";
+
+            DOM.imgPreviewDiv.setAttribute('src', state.defaultWallpaperSrc);
+        }
+
+        // 由显示背景图 变为 不显示背景图
+        // 1. 显示背景色取色器、不显示背景图选择器
+        // 2. 设置背景src为初始背景
+        // 3. 背景变为设定的背景色
+        if (DOM.wallPaperEnableCheckbox.checked === false) {
+            DOM.backgroundColorContainer.style.display = "flex";
+            DOM.previewContainer.style.opacity = '0';
+            DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
+
+            document.body.style.background = DOM.bgColorPicker.value;
+        }
+    }
+}
+
+// 修改书签相关 如： 大小、书签数、样式
+export function applyBookmarkRelatedChanged(settings) {
+    if (settings.bookmarkSize && settings.bookmarkSize !== "medium") {
+        let dialWidth, dialHeight, dialContentHeight;
+        switch (settings.bookmarkSize) {
+            case "large":
+                dialWidth = '256px';
+                dialHeight = settings.dialRatio === "square" ? '274px' : '162px';
+                dialContentHeight = settings.dialRatio === "square" ? '256px' : '144px';
+                break;
+            case "small":
+                dialWidth = '178px';
+                dialHeight = settings.dialRatio === "square" ? '196px' : '118px';
+                dialContentHeight = settings.dialRatio === "square" ? '178px' : '100px';
+                break;
+            case "x-small":
+                dialWidth = '130px';
+                dialHeight = settings.dialRatio === "square" ? '148px' : '100px';
+                dialContentHeight = settings.dialRatio === "square" ? '130px' : '82px';
+                break;
+            default:
+                dialWidth = '220px';
+                dialHeight = settings.dialRatio === "square" ? '238px' : '142px';
+                dialContentHeight = settings.dialRatio === "square" ? '220px' : '124px';
+        }
+        document.documentElement.style.setProperty('--dial-width', dialWidth);
+        document.documentElement.style.setProperty('--dial-height', dialHeight);
+        document.documentElement.style.setProperty('--dial-content-height', dialContentHeight);
+    } else {
+        document.documentElement.style.setProperty('--dial-width', '220px');
+        if (settings.dialRatio === "square") {
+            document.documentElement.style.setProperty('--dial-height', '238px');
+            document.documentElement.style.setProperty('--dial-content-height', '220px');
+        } else {
+            document.documentElement.style.setProperty('--dial-height', '142px');
+            document.documentElement.style.setProperty('--dial-content-height', '124px');
+        }
+    }
+    if (settings.maxCols && settings.maxCols !== "100") {
+        //todo cleanup - fixed values
+        let dialWidth = 220;
+        let dialMargin = 18 * 2; // 18px on each side
+
+        switch (settings.bookmarkSize) {
+            case "large":
+                dialWidth = 256;
+                break;
+            case "small":
+                dialWidth = 178;
+                break;
+            case "x-small":
+                dialWidth = 130;
+                break;
+            default:
+                dialWidth = 220;
+        }
+
+        const containerWidth = settings.maxCols * (dialWidth + dialMargin);
+        document.documentElement.style.setProperty('--columns', `${containerWidth}px`);
+        layout();
+    } else {
+        document.documentElement.style.setProperty('--columns', '100%');
+        layout();
+    }
+}
+
+// 设置其他，如：字体颜色、是否显示添加分组按钮、是否显示时钟、是否显示书签标题、是否显示添加书签按钮
+export function applyOtherChanged(settings) {
+    if (settings.textColor) {
+        document.documentElement.style.setProperty('--color', settings.textColor);
+    }
+
+    if (settings.showAddGroupsBtn) {
+        document.documentElement.style.setProperty('--show-groups', 'inline');
+    } else {
+        document.documentElement.style.setProperty('--show-groups', 'none');
+    }
+
+    if (settings.showClock) {
+        DOM.clock.style.setProperty('--clock', 'block');
+    } else {
+        DOM.clock.style.setProperty('--clock', 'none');
+    }
+
+    if (!settings.showTitles) {
+        document.documentElement.style.setProperty('--title-opacity', '0');
+    } else {
+        document.documentElement.style.setProperty('--title-opacity', '1');
+    }
+
+    if (!settings.showAddSiteBtn) {
+        document.documentElement.style.setProperty('--create-dial-display', 'none');
+    } else {
+        document.documentElement.style.setProperty('--create-dial-display', 'block');
+    }
 }
 
 // todo: why did i debounce animate but not layout? (because we want tiles to move immediately as manually resizing window)
@@ -449,7 +536,7 @@ export function layout(force = false) {
         // layoutgroup true on group open -- zero duration because we are just setting the positions of the dials, so whenever
         // a resize occurs the animation will start from the right position
         if (nodesToAnimate.length > 0 || force) {
-            let duration = layoutgroup ? 0 : 0.7;
+            let duration = state.layoutgroup ? 0 : 0.7;
             TweenMax.staggerTo(nodesToAnimate, duration, { x: 0, y: 0, stagger: { amount: 0.2 }, ease });
         }
 

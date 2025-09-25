@@ -1,9 +1,13 @@
-// helper function for when we set the color picker value programmatically to update our button
+import { state } from "./state.js";
+import { animate } from "./ui.js";
+
+// 程序化设置输入框（如颜色选择器）的值，并触发input事件。
 export function setInputValue(inputElement, value) {
     inputElement.value = value;
     inputElement.dispatchEvent(new Event('input'));
 }
 
+// 读取文件内容并解析为 JSON
 export function parseJson(event) {
     return JSON.parse(event.target.result);
 }
@@ -13,11 +17,8 @@ export function parseJson(event) {
 export function generateId() {
     return crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
 }
-// function generateId() {
-//     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-// }
 
-// 背景图调整大小
+// 根据屏幕高度调整背景图片大小，并返回处理后的图片 DataURI。
 export function resizeBackground(dataURI) {
     return new Promise(function (resolve, reject) {
         let img = new Image();
@@ -51,12 +52,13 @@ export function resizeBackground(dataURI) {
     })
 }
 
+// 根据搜索词过滤书签，显示匹配项并隐藏不匹配项
 export function filterDials(searchTerm) {
-    const currentParent = currentGroup;
-    const dials = document.querySelectorAll(`[id="${currentParent}"] > .tile`);
+    const currentGroupId = state.currentGroupId;
+    const bookmarks = document.querySelectorAll(`[id="${currentGroupId}"] > .tile`);
 
-    dials.forEach(dial => {
-        if (!settings.showAddSite && dial.classList.contains('createDial')) {
+    bookmarks.forEach(dial => {
+        if (!state.settings.showAddSiteBtn && dial.classList.contains('createDial')) {
             // dont show the create dial button
             return;
         }
@@ -87,7 +89,7 @@ export function filterDials(searchTerm) {
     animate();
 }
 
-// calculate the bg color of a given image. returns rgba array [r, g, b, a]
+// 计算图片的背景色，返回 RGBA 数组（[r, g, b, a]）。
 // todo: duped in offscreen logic; punt this to a worker
 export function getBgColor(img) {
     let imgWidth = img.naturalWidth;
@@ -180,6 +182,7 @@ export function getBgColor(img) {
     }
 }
 
+// 创建画布（canvas）的兼容层，优先使用OffscreenCanvas（性能更优），不支持时降级为普通canvas。
 function offscreenCanvasShim(w, h) {
     try {
         return new OffscreenCanvas(w, h);
@@ -192,6 +195,7 @@ function offscreenCanvasShim(w, h) {
     }
 }
 
+// 判断两个颜色是否相似。
 function colorsAreSimilar(color1, color2, tolerance = 2) {
     return Math.abs(color1[0] - color2[0]) <= tolerance &&
         Math.abs(color1[1] - color2[1]) <= tolerance &&
@@ -199,7 +203,8 @@ function colorsAreSimilar(color1, color2, tolerance = 2) {
         Math.abs(color1[3] - color2[3]) <= tolerance;
 }
 
-function rgbToHex(rgbArray) {
+// 将 RGB 数组（[r, g, b]）转换为十六进制颜色字符串（如#ffffff）。
+export function rgbToHex(rgbArray) {
     // todo: support alpha value
     // Convert RGB values to hex color
     let r = Math.round(rgbArray[0]);
@@ -208,6 +213,7 @@ function rgbToHex(rgbArray) {
     return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
+// 将十六进制颜色字符串（如#ffffff）转换为 RGBA 数组（[r, g, b, a]）。
 function hexToRgba(hex) {
     // Convert hex color to RGBA values
     let r = parseInt(hex.slice(1, 3), 16);
@@ -217,19 +223,22 @@ function hexToRgba(hex) {
     return [r, g, b, a];
 }
 
+// 将十六进制颜色转换为 CSS 渐变字符串（本质为纯色渐变）。
 function hexToCssGradient(hex) {
     // Convert hex color to CSS gradient string
     let rgba = hexToRgba(hex);
     return rgbaToCssGradient(rgba);
 }
 
+// 将 RGBA 数组转换为 CSS 渐变字符串（本质为纯色渐变）。
 function rgbaToCssGradient(rgba) {
     // Convert RGBA values to CSS gradient string
     // gradient is used as a shortcut to set the background color at same time as image
     return `linear-gradient(to bottom, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%)`;
 }
 
-function cssGradientToHex(gradientString) {
+// 从 CSS 渐变字符串中提取 RGBA 值，返回 RGBA 数组。
+export function cssGradientToHex(gradientString) {
     // css string is in format: 'linear-gradient(to bottom, rgba(255,255,255,1) 50%, rgba(0,0,0,1) 50%)'
     const rgbaString = gradientString.split('rgba(')[1].split(')')[0];
     const [r, g, b, a] = rgbaString.split(',').map(Number);

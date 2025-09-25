@@ -44,7 +44,7 @@
   "dialRatio": {
     "message": "ダイヤルフォーマット"
   },
-  "dialSize": {
+  "bookmarkSize": {
     "message": "ダイヤルサイズ"
   },
   "edit": {
@@ -100,7 +100,7 @@
   "newBackgroundTab": {
     "message": "バックグラウンドタブで開く"
   },
-  "newDial": {
+  "newBookmark": {
     "message": "新しいスピードダイヤル..."
   },
   "newgroup": {
