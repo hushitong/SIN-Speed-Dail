@@ -32,6 +32,10 @@ export const DOM = {
 
     importExportModal: document.getElementById('importExportModal'),
     importExportModalContent: document.getElementById('importExportModalContent'),
+    importExportStatus: document.getElementById('statusMessage'),
+    exportBtn: document.getElementById("exportBtn"),
+    importFileInput: document.getElementById("importFile"),
+    importFileLabel: document.getElementById("importFileLabel"),
 
     refreshAllModal: document.getElementById('refreshAllModal'),
     refreshAllModalContent: document.getElementById('refreshAllModalContent'),
@@ -81,10 +85,6 @@ export const DOM = {
     showCreateGroupsCheckbox: document.getElementById("showgroups"),    // 是否显示新增分组按钮
     rememberGroupCheckbox: document.getElementById("remembergroup"),    // 是否记住当前选择分组
     importExportBtn: document.getElementById("importExportBtn"),
-    importExportStatus: document.getElementById('statusMessage'),
-    exportBtn: document.getElementById("exportBtn"),
-    importFileInput: document.getElementById("importFile"),
-    importFileLabel: document.getElementById("importFileLabel"),
     helpBtn: document.getElementById("help"),
 
     searchContainer: document.getElementById('searchContainer'),

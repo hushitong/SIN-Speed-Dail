@@ -168,5 +168,14 @@
   },
   "wallpaper": {
     "message": "使用壁纸"
+  },
+  "importExportModalName": {
+    "message": "导入/导出设定"
+  },
+  "importName": {
+    "message": "导入"
+  },
+  "exportName": {
+    "message": "导出"
   }
 }

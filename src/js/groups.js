@@ -72,8 +72,10 @@ export function groupLink(groupTitle, groupId) {
         chrome.storage.local.set({ settings:state.settings });
     };
 
-    // todo: allow dropping directly on group title?
+    // 可拖拽目标为设定了 draggable="true" 的元素
+    // 绑定拖拽事件：当可拖拽元素进入该目标时触发
     a.ondragenter = dragenterHandler;
+    // 绑定拖拽事件：当可拖拽元素离开该目标时触发
     a.ondragleave = dragleaveHandler;
 
     DOM.groupsContainer.appendChild(a);

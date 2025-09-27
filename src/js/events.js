@@ -2,15 +2,16 @@
     目的：集中所有事件处理，避免散乱。
 */
 import { DOM } from "./dom.js";
-import { parseJson, resizeBackground, filterDials, setInputValue } from "./utils.js";
+import { apply_i18n, parseJson, resizeBackground, filterDials, setInputValue } from "./utils.js";
 import {
     saveSettings, getSettingFromDOM,
+    prepareExport,
     importFromSD2, importFromFVD, importFromYASD, importFromOldYASD
 } from "./setting.js";
 import {
-    showContextMenu, hideMenus, hideSettings, openSettings,
+    showContextMenu, hideMenus, hideSettings, openSettings, initSettings, buildGroupsAndBookmarksPages,
     applyBackgroundChanged, applyWallpaperEnableChanged, applyBookmarkRelatedChanged, applyOtherChanged,
-    hideToast, processRefresh, layout
+    showToast, hideToast, processRefresh, layout
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
@@ -18,7 +19,7 @@ import {
     createDial, removeBookmark, moveBookmark,
     refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
-import { createGroup, editGroup, removeGroup, moveGroup } from "./groups.js";
+import { createGroup, editGroup, removeGroup, moveGroup, showGroup } from "./groups.js";
 import { state } from "./state.js"
 
 
@@ -34,6 +35,11 @@ export function initEvents() {
     console.log("initEvents start");
     // 监听来自后台的消息
     chrome.runtime.onMessage.addListener(handleMessages);
+
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     const settings =  chrome.storage.local.get("settings");
+    //     apply_i18n(settings.i18nLanguage);
+    // });
 
     // 替代右键菜单
     document.addEventListener("contextmenu", function (e) {
@@ -314,7 +320,7 @@ export function initEvents() {
 
     // 是否使用背景图
     DOM.wallPaperEnableCheckbox.oninput = function (e) {
-        console.log("DOM.wallPaperEnableCheckbox.oninput : ",e.target.checked);
+        console.log("DOM.wallPaperEnableCheckbox.oninput : ", e.target.checked);
         saveSettings(state.settings, state.defaultWallpaperSrc);
         applyWallpaperEnableChanged(true);
         // applySettings(state.settings, null, true);
@@ -330,27 +336,9 @@ export function initEvents() {
         }
     }
 
-    // todo：和 applySettings 后半段的 DOM.imgPreview.onload 及 DOM.imgPreview.onerror 这些有重复问题，后面再解决
     // 图片文件读取完成
     reader.onload = function (e) {
         console.log("reader.onload");
-
-        // DOM.imgPreviewDiv.onload = function (e) {
-        //     console.log("DOM.imgPreview.onload");
-        //     // DOM.backgroundColorContainer.style.display = "flex";
-        //     // DOM.previewContainer.style.opacity = '0';
-        //     // DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
-
-        //     DOM.backgroundColorContainer.style.display = "none";
-        //     DOM.previewContainer.style.opacity = '1';
-        //     DOM.switchesContainer.style.transform = "translateY(0)";
-        // }
-        // DOM.imgPreviewDiv.onerror = function (e) {
-        //     console.log("DOM.imgPreview.onerror");
-        //     state.wallpaperSrc = state.defaultWallpaperSrc;
-        //     DOM.imgPreviewDiv.setAttribute('src', state.wallpaperSrc);
-        //     chrome.storage.local.set({ wallpaperSrc: state.wallpaperSrc });
-        // }
 
         resizeBackground(e.target.result).then(imagedata => {
             DOM.imgPreviewDiv.setAttribute('src', imagedata);
@@ -450,20 +438,17 @@ export function initEvents() {
         hideSettings();
     });
 
+    // 点击 导入/导出 按钮
     DOM.importExportBtn.onclick = function () {
         hideSettings();
         DOM.importExportStatus.innerText = "";
         DOM.exportBtn.classList.add('disabled');
-        prepareExport();
+        // prepareExport();
         modalShowEffect(DOM.importExportModalContent, DOM.importExportModal);
     }
 
     DOM.helpBtn.onclick = function () {
         chrome.tabs.create({ url: helpUrl });
-    }
-
-    DOM.importFileLabel.onclick = function () {
-        DOM.importFileInput.click();
     }
 
     // Add event listener for search input
@@ -481,7 +466,12 @@ export function initEvents() {
         filterDials('');
     });
 
+    // 导入
+    DOM.importFileLabel.onclick = function () {
+        DOM.importFileInput.click();
+    }
     DOM.importFileInput.onchange = function (event) {
+        console.log("DOM.importFileInput.onchange");
         let filereader = new FileReader();
 
         filereader.onload = function (event) {
@@ -492,7 +482,10 @@ export function initEvents() {
                 DOM.importExportStatus.innerText = "Error! Unable to parse file.";
             }
 
-            if (!json) return;
+            if (!json) {
+                DOM.importExportStatus.innerText = "Could not get any datas from this file.";
+                return;
+            }
 
             // quiet the listeners so yasd doesnt go crazy
             chrome.runtime.sendMessage({ target: 'background', type: 'toggleBookmarkCreatedListener', data: { enable: false } });
@@ -500,8 +493,36 @@ export function initEvents() {
             //todo: re-enable listener when import complete
             //todo: add an option to fetch new thumbnails or use the included ones
 
+            // if (json.bookmarks && json.groups && json.settings) {
+
+            // }
+
             if (json.dials && json.groups) {
-                importFromSD2(json);
+                const data = importFromSD2(json);
+                if (data) {
+                    // 清空并写入
+                    chrome.storage.local.clear().then(() => {
+                        state.currentGroupId = state.homeGroup.id;
+
+                        return chrome.storage.local.set({
+                            groups: data.groups,
+                            bookmarks: data.bookmarks,
+                            settings: data.settings
+                        });
+                    }).then(() => {
+                        state.currentGroupId = state.homeGroup.id;
+                        state.data = data;
+                        hideModals();
+                        initSettings(data.settings, state.defaultWallpaperSrc);
+                        console.log(state.currentGroupId,"=========================================",data.settings.currentGroupId)
+                        buildGroupsAndBookmarksPages(data.settings.currentGroupId);
+                        // processRefresh({ currentGroupId: state.homeGroup.id });
+                        showToast("导入成功！", 1500);
+                    }).catch(err => {
+                        console.error(err);
+                        DOM.importExportStatus.innerText = "SD2 import error! Unable to save bookmarks.";
+                    });
+                }
             } else if (json.db) {
                 importFromFVD(json);
             } else if (json.yasd) {
@@ -590,38 +611,43 @@ function onResize() {
 // Sortable 拖拽排序事件结束后的处理函数
 // 用于 书签列表 和 分组列表 拖拽排序
 // todo: 需要修改完善
+// evt.clone - 拖拽的克隆元素
+// evt.from - 原始容器
+// evt.to - 目标容器
 export function onEndHandler(evt) {
     if (evt && evt.clone.href) {
-        let id = evt.clone.dataset.id;
-        let fromParentId = dewrap(evt.from.id);
-        let toParentId = dewrap(evt.to.id);
-        let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.dataset.id : null;
-        let newSiblingParentId = newSiblingId ? dewrap(evt.item.nextElementSibling.parentElement.id) : null;
-        let oldIndex = evt.oldIndex;
-        let newIndex = evt.newIndex;
+        let id = evt.clone.dataset.id;  // 书签ID
+        let fromGroupId = dewrap(evt.from.id);  // 原始分组ID
+        let toGroupId = dewrap(evt.to.id);  // 目标分组ID
+        let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.dataset.id : null; // 新邻居ID
+        let newSiblingGroupId = newSiblingId ? dewrap(evt.item.nextElementSibling.parentElement.id) : null; // 新邻居的GroupId
+        let oldIndex = evt.oldIndex;    // 原始位置
+        let newIndex = evt.newIndex;    // 新位置
 
-        // todo: test if this is needed
-        if (fromParentId !== toParentId && toParentId !== evt.originalEvent.target.id) {
+        // 处理跨分组拖拽但目标不匹配的情况
+        if (fromGroupId !== toGroupId && toGroupId !== evt.originalEvent.target.id) {
             // sortable's position doesn't match the dom's drop target
             // this may happen if the tile is dragged over a sortable list but then ultimately dropped somewhere else
             // for example directly on the group name, or directly onto the new dial button. so use the currentgroup as the target
-            toParentId = currentGroup ? currentGroup : selectedGroupId;
+            toGroupId = state.currentGroupId ? state.currentGroupId : state.selectedGroupId;
         }
 
-        if (fromParentId === toParentId && fromParentId !== currentGroup) {
+        // 处理同一分组内但目标不是当前分组的情况
+        if (fromGroupId === toGroupId && fromGroupId !== state.currentGroupId) {
             // occurs when there is no sortable target -- for example dropping the dial onto the group name
             // or some space of the page outside the sortable container element
-            toParentId = currentGroup ? currentGroup : selectedGroupId;
+            toGroupId = state.currentGroupId ? state.currentGroupId : state.selectedGroupId;
         }
 
+        // 处理邻居分组不匹配的情况
         // if the sibling's parent doesnt match the parent we are moving to discard this sibling
         // can occur when dropping onto a non sortable target (like group name)
-        if (newSiblingParentId && newSiblingParentId !== toParentId) {
+        if (newSiblingGroupId && newSiblingGroupId !== toGroupId) {
             newSiblingId = -1;
         }
 
-        if ((fromParentId && toParentId && fromParentId !== toParentId) || oldIndex !== newIndex) {
-            moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSiblingId)
+        if ((fromGroupId && toGroupId && fromGroupId !== toGroupId) || oldIndex !== newIndex) {
+            moveBookmark(id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId)
         }
     } else if (evt && evt.clone.classList.contains('groupTitle')) {
         let oldIndex = evt.oldIndex;
@@ -637,31 +663,32 @@ export function onEndHandler(evt) {
     }
 }
 
-// native handlers for group tab target
+// 拖拽事件处理函数：当可拖拽元素进入目标时触发
 export function dragenterHandler(ev) {
     // temporary fix for firefox < v92
     // firefox returns a text node instead of an element
     if (ev.target.nodeType === 3) {
         if (ev.target.parentElement.classList.contains("groupTitle")) {
             // avoid repaints
-            if (currentGroup !== ev.target.parentElement.attributes.groupid.value) {
-                currentGroup = ev.target.parentElement.attributes.groupid.value;
-                showGroup(currentGroup)
+            if (state.currentGroupId !== ev.target.parentElement.attributes.groupid.value) {
+                state.currentGroupId = ev.target.parentElement.attributes.groupid.value;
+                showGroup(state.currentGroupId)
             }
         }
     }
     else if (ev.target.classList.contains("groupTitle")) {
         // avoid repaints
         // todo replace style changes with class;
-        if (currentGroup !== ev.target.attributes.groupid.value) {
+        if (state.currentGroupId !== ev.target.attributes.groupid.value) {
             ev.target.style.padding = "20px";
             ev.target.style.outline = "2px dashed white";
-            currentGroup = ev.target.attributes.groupid.value;
-            showGroup(currentGroup)
+            state.currentGroupId = ev.target.attributes.groupid.value;
+            showGroup(state.currentGroupId)
         }
     }
 }
 
+// 拖拽事件处理函数：当可拖拽元素离开目标时触发
 export function dragleaveHandler(ev) {
     // temporary fix for firefox < v92
     if (ev.target.nodeType === 3) {
@@ -691,7 +718,7 @@ function dewrap(str) {
     // unlike group tabs, main dial container doesnt include the group id
     // todo: cleanup
     if (str === "wrap") {
-        return selectedGroupId
+        return state.selectedGroupId
     } else {
         return str
     }

@@ -9,10 +9,10 @@ import { state } from "./state.js"
 import { onEndHandler } from "./events.js";
 import { DOM } from "./dom.js";
 import { saveSettings } from "./setting.js";
-import { initSettings, buildPages as buildBookmarkPages } from "./ui.js";
+import { initSettings, buildGroupsAndBookmarksPages } from "./ui.js";
+import { apply_i18n } from "./utils.js";
 
 // let tabMessagePort = null;
-
 
 // 时钟相关
 let hourCycle = 'h12';
@@ -31,11 +31,7 @@ function init() {
     console.log("Project init start");
 
     initEvents();
-
-    // 本地化
-    document.querySelectorAll('[data-locale]').forEach(elem => {
-        elem.innerText = chrome.i18n.getMessage(elem.dataset.locale)
-    })
+    // apply_i18n();
 
     new Promise(resolve => chrome.storage.local.get(["settings", "wallpaperSrc"], resolve))
         .then(result => {
@@ -53,9 +49,11 @@ function init() {
             state.selectedGroupId = state.settings.currentGroupId;
             console.log("Project init before saveSettings");
             saveSettings(state.settings, wallpaperSrc, false).then(() => {
-                // applySettings(state.settings, wallpaperSrc);
+                let i18nLanguage = (state.settings.i18nLanguage).replace('-', '_');
+                apply_i18n(i18nLanguage);
+                
                 initSettings(state.settings, wallpaperSrc);
-                buildBookmarkPages(state.selectedGroupId);
+                buildGroupsAndBookmarksPages(state.selectedGroupId);
             });
         });
 

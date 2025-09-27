@@ -11,10 +11,10 @@ let containerSize = null;   // 设计用于存储容器（如书签容器）的�
 let boxes = [];
 
 // 建立整个书签页面，包括 分组标题列表 和 书签内容列表
-export async function buildPages(selectedGroupId) {
+export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     // 获得 bookmarks 和 groups 数据
     state.data = await getData();
-    console.log("buildPages state.data", state.data);
+    console.log("buildPages state.data", state.data, "selectedGroupId", selectedGroupId);
     const groups = state.data.groups;
 
     // 如果没有任何分组，添加一个主页分组
@@ -55,6 +55,24 @@ export async function buildPages(selectedGroupId) {
             }
         }
     }
+
+    // 激活被选择的分组，隐藏没被选择分组
+    let bookmorksContainer = document.getElementById('tileContainer').getElementsByClassName('container');
+    Array.from(bookmorksContainer).forEach(item => {
+        if (item.id === selectedGroupId) {
+            item.style.display = "flex"
+            setTimeout(() => {
+                item.style.opacity = "1";
+                animate();
+            }, 20);
+        } else {
+            item.style.display = "none";
+            setTimeout(() => {
+                item.style.opacity = "0";
+                animate();
+            }, 20);
+        }
+    });
 }
 
 // 页面刷新：读取数据，重建分组标题
@@ -235,8 +253,8 @@ export const animate = debounce(() => {
 }, 300)
 
 // 进行页面刷新
-export const processRefresh = debounce(({ groupsOnly = false } = {}) => {
-    console.log("processRefresh start: processRefresh ", groupsOnly);
+export const processRefresh = debounce(({ groupsOnly = false, currentGroupId = state.currentGroupId } = {}) => {
+    console.log("processRefresh start: processRefresh ", groupsOnly, " currentGroupId", currentGroupId);
     if (groupsOnly) {
         reBuildGroupPages()
     } else {
@@ -248,7 +266,7 @@ export const processRefresh = debounce(({ groupsOnly = false } = {}) => {
 
         //bookmarksContainer.style.opacity = "0";
 
-        buildPages(state.currentGroupId)
+        buildPages(currentGroupId)
     }
 }, 650, true);
 

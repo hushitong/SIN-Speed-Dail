@@ -2,9 +2,9 @@ import { state } from "./state.js"
 import { DOM } from "./dom.js"
 import { getData, saveData } from "./data.js"
 import { generateId } from "./utils.js";
-import { hideModals,buildCreateBookmarkModal,modalShowEffect } from "./modals.js";
-import { showToast,animate,hideSettings } from "./ui.js";
-import { onMoveHandler,onEndHandler } from "./events.js";
+import { hideModals, buildCreateBookmarkModal, modalShowEffect } from "./modals.js";
+import { showToast, animate, hideSettings } from "./ui.js";
+import { onMoveHandler, onEndHandler } from "./events.js";
 
 function rectifyUrl(url) {
     if (url && !url.startsWith('https://') && !url.startsWith('http://')) {
@@ -47,7 +47,7 @@ export async function saveNewBookmark(groupId, url, title) {
         position: maxPosition + 1,
         thumbnail: null,
         visits: 0,
-        createtime: new Date().toISOString()
+        createtime: Math.floor(Date.now() / 1000),
     };
 
     data.bookmarks.push(newBookmark);
@@ -149,14 +149,15 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
         groupContainerEl.style.display = 'none';
         groupContainerEl.style.opacity = "0";
 
-        if (state.currentGroupId === selectedGroupId) {
-            groupContainerEl.style.display = "flex"
-            setTimeout(() => {
-                groupContainerEl.style.opacity = "1";
-                animate();
-            }, 20);
-            // document.querySelector(`[groupid="${currentGroupId}"]`)?.classList.add('activegroup'); //需要在这里设置当前分组为激活状态吗
-        }
+        // console.log("printBookmarksByGroupId currentGroupId", state.currentGroupId)
+        // if (state.currentGroupId === selectedGroupId) {
+        //     groupContainerEl.style.display = "flex"
+        //     setTimeout(() => {
+        //         groupContainerEl.style.opacity = "1";
+        //         animate();
+        //     }, 20);
+        //     // document.querySelector(`[groupid="${currentGroupId}"]`)?.classList.add('activegroup'); //需要在这里设置当前分组为激活状态吗
+        // }
         DOM.bookmarksContainerParent.append(groupContainerEl);
     } else {
         groupContainerEl.innerHTML = '';

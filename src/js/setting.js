@@ -1,5 +1,8 @@
 import { DOM } from "./dom.js";
 import { state } from "./state.js"
+import { hideModals } from "./modals.js";
+import { processRefresh, showToast } from "./ui.js";
+import { generateId } from "./utils.js";
 
 // 由页面 DOM 元素获得 setting 信息
 export function getSettingFromDOM(settings) {
@@ -98,13 +101,15 @@ function prepareExportV1() {
         const today = new Date();
         const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
 
-        exportBtn.setAttribute('href', URL.createObjectURL(blob));
-        exportBtn.download = `yasd-export-${dateString}.json`;
-        exportBtn.classList.remove('disabled');
+        DOM.exportBtn.setAttribute('href', URL.createObjectURL(blob));
+        DOM.exportBtn.download = `yasd-export-${dateString}.json`;
+        DOM.exportBtn.classList.remove('disabled');
 
     });
 }
 
+// todo:更改获取数据逻辑为从浏览器本地缓存获取
+// 导出当前插件的数据，生成一个 JSON 文件并提供下载。
 export function prepareExport() {
     // exports yasd json file that includes all bookmarks within the root speed dial group, along with the yasd settings and thumbnails from storage
     // in the following format:
@@ -139,124 +144,280 @@ export function prepareExport() {
             dials: []
         }
     };
+    // // Get bookmarks and groups within the speed dial group
+    // chrome.bookmarks.getSubTree(state.selectedGroupId).then(bookmarkTreeNodes => {
+    //     function traverseBookmarks(nodes, parentId = null) {
+    //         nodes.forEach(node => {
+    //             if (node.url) {
+    //                 yasdJson.yasd.bookmarks.push({
+    //                     id: node.id,
+    //                     title: node.title,
+    //                     url: node.url,
+    //                     index: node.index,
+    //                     groupid: parentId
+    //                 });
+    //             } else {
+    //                 yasdJson.yasd.groups.push({
+    //                     id: node.id,
+    //                     title: node.title,
+    //                     index: node.index
+    //                 });
+    //                 if (node.children) {
+    //                     traverseBookmarks(node.children, node.id);
+    //                 }
+    //             }
+    //         });
+    //     }
+    //     traverseBookmarks(bookmarkTreeNodes[0].children);
 
-    // Get bookmarks and groups within the speed dial group
-    chrome.bookmarks.getSubTree(selectedGroupId).then(bookmarkTreeNodes => {
-        function traverseBookmarks(nodes, parentId = null) {
-            nodes.forEach(node => {
-                if (node.url) {
-                    yasdJson.yasd.bookmarks.push({
-                        id: node.id,
-                        title: node.title,
-                        url: node.url,
-                        index: node.index,
-                        groupid: parentId
-                    });
-                } else {
-                    yasdJson.yasd.groups.push({
-                        id: node.id,
-                        title: node.title,
-                        index: node.index
-                    });
-                    if (node.children) {
-                        traverseBookmarks(node.children, node.id);
-                    }
-                }
-            });
-        }
-        traverseBookmarks(bookmarkTreeNodes[0].children);
+    //     // Get YASD settings and thumbnails from storage
+    //     chrome.storage.local.get(null).then(items => {
+    //         for (const [key, value] of Object.entries(items)) {
+    //             if (key.startsWith('settings')) {
+    //                 yasdJson.yasd.settings[key] = value;
+    //             } else if (key.startsWith('http')) {
+    //                 let thumbnails = [];
+    //                 if (value.thumbnails && value.thumbnails.length) {
+    //                     thumbnails.push(value.thumbnails[value.thumbIndex]);
+    //                 }
+    //                 yasdJson.yasd.dials.push({
+    //                     [key]: {
+    //                         thumbnails: thumbnails,
+    //                         thumbIndex: 0,
+    //                         bgColor: value.bgColor
+    //                     }
+    //                 });
+    //             }
+    //         }
 
-        // Get YASD settings and thumbnails from storage
-        chrome.storage.local.get(null).then(items => {
-            for (const [key, value] of Object.entries(items)) {
-                if (key.startsWith('settings')) {
-                    yasdJson.yasd.settings[key] = value;
-                } else if (key.startsWith('http')) {
-                    let thumbnails = [];
-                    if (value.thumbnails && value.thumbnails.length) {
-                        thumbnails.push(value.thumbnails[value.thumbIndex]);
-                    }
-                    yasdJson.yasd.dials.push({
-                        [key]: {
-                            thumbnails: thumbnails,
-                            thumbIndex: 0,
-                            bgColor: value.bgColor
-                        }
-                    });
-                }
-            }
+    //         // Save as file; requires downloads permission
+    //         const blob = new Blob([JSON.stringify(yasdJson)], { type: 'application/json' });
+    //         const today = new Date();
+    //         const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}-v3`;
 
-            // Save as file; requires downloads permission
-            const blob = new Blob([JSON.stringify(yasdJson)], { type: 'application/json' });
-            const today = new Date();
-            const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}-v3`;
-
-            exportBtn.setAttribute('href', URL.createObjectURL(blob));
-            exportBtn.download = `yasd-export-${dateString}.json`;
-            exportBtn.classList.remove('disabled');
-        });
-    });
+    //         DOM.exportBtn.setAttribute('href', URL.createObjectURL(blob));
+    //         DOM.exportBtn.download = `yasd-export-${dateString}.json`;
+    //         DOM.exportBtn.classList.remove('disabled');
+    //     });
+    // });
 }
 
-export function importFromSD2(json) {
-    let bookmarks = json.dials.map(dial => ({
-        title: dial.title,
-        url: dial.url,
-        idgroup: dial.idgroup
-    }));
+// 读取 speed dail 2 的 json，导入数据
+// export function importFromSD2(json, isMerge = false) {
+//     // let bookmarks = json.dials.map(dial => ({
+//     //     title: dial.title,
+//     //     url: dial.url,
+//     //     groupId: dial.idgroup,
+//     //     visits: dial.visits,
+//     //     position: dial.position,
+//     //     thumbnail: dial.thumbnail,
+//     //     createtime: dial.ts_created,
 
-    let groups = json.groups.map(group => ({
-        id: group.id,
-        title: group.title
-    }));
+//     // }));
 
-    chrome.storage.local.clear().then(() => {
-        // Create groups and bookmarks
-        let groupPromises = groups.map(group => {
-            if (group.id === 0) {
-                return Promise.resolve(selectedGroupId);
-            } else {
-                return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
-                    const matchingGroups = existingGroups.filter(group => group.parentId === selectedGroupId);
-                    if (matchingGroups.length > 0) {
-                        return matchingGroups[0].id;
-                    } else {
-                        return chrome.bookmarks.create({
-                            title: group.title,
-                            parentId: selectedGroupId
-                        }).then(node => node.id);
-                    }
-                });
+//     // let groups = json.groups.map(group => ({
+//     //     id: group.id,
+//     //     title: group.title,
+//     //     position: group.position,
+//     // }));
+
+//     const origGroups = Array.isArray(json.groups) ? json.groups : [];
+//     const origDials = Array.isArray(json.dials) ? json.dials : [];
+
+//     // map: 原始 group.id (字符串) -> 新 group id ("home" 或 "G.xxxx")
+//     const groupIdMap = {};
+
+//     // ----- 不合并：直接清空并覆盖 -----
+//     if (!isMerge) {
+//         const newGroups = [];
+//         const groupIdMap = {};
+
+//         // 先处理 home 分组（固定）
+//         groupIdMap["0"] = "home";
+//         newGroups.push({
+//             id: "home",
+//             title: "Index",
+//             position: 1
+//         });
+
+//         // 处理其他分组
+//         origGroups.forEach(g => {
+//             if (g.id === 0) {
+//                 return;
+//             }
+//             const key = String(g.id);
+//             const newId = "G." + generateId();
+//             groupIdMap[key] = newId;
+//             newGroups.push({
+//                 id: newId,
+//                 title: g.title,
+//                 position: g.position
+//             });
+//         });
+
+//         // 为每个 dial 生成书签，groupId 使用映射（找不到默认 home）
+//         origDials.forEach(d => {
+//             const mappedGroupId = groupIdMap[String(d.idgroup)] || 'home';
+//             newBookmarks.push({
+//                 id: generateId(),
+//                 title: d.title,
+//                 url: d.url,
+//                 groupId: mappedGroupId,
+//                 visits: d.visits,
+//                 position: d.position,
+//                 thumbnail: d.thumbnail,
+//                 createtime: d.ts_created
+//             });
+//         });
+//     }
+
+//     // // 清空并写入
+//     // chrome.storage.local.clear().then(() => {
+//     //     return chrome.storage.local.set({
+//     //         groups: newGroups,
+//     //         bookmarks: newBookmarks
+//     //     });
+//     // }).then(() => {
+//     //     hideModals();
+//     //     processRefresh();
+//     // }).catch(err => {
+//     //     console.error(err);
+//     //     DOM.importExportStatus.innerText = "SD2 import error! Unable to save bookmarks.";
+//     // });
+
+//     return;
+// }
+
+export function importFromSD2(json, isMerge = false) {
+    const origGroups = Array.isArray(json.groups) ? json.groups : [];
+    const origDials = Array.isArray(json.dials) ? json.dials : [];
+
+    const newGroups = [];
+    const newBookmarks = [];
+    const groupIdMap = {};
+
+    // ----- 不合并：直接清空并覆盖 -----
+    if (!isMerge) {
+        // 先处理 home 分组（固定）
+        groupIdMap["0"] = "home";
+        newGroups.push({
+            id: "home",
+            title: "Index",
+            position: 1
+        });
+
+        // 处理其他分组
+        origGroups.forEach(g => {
+            if (g.id === 0) {
+                return;
             }
-        });
-
-        Promise.all(groupPromises).then(groupIds => {
-            bookmarks.forEach(bookmark => {
-                let parentId = groupIds[bookmark.idgroup];
-                chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsIngroup) {
-                        chrome.bookmarks.create({
-                            title: bookmark.title,
-                            url: bookmark.url,
-                            parentId: parentId
-                        });
-                    }
-                });
+            const key = String(g.id);
+            const newId = "G." + generateId();
+            groupIdMap[key] = newId;
+            newGroups.push({
+                id: newId,
+                title: g.title,
+                position: g.position
             });
-
-            hideModals();
-            // refresh page
-            processRefresh();
-        }).catch(err => {
-            console.log(err)
-            importExportStatus.innerText = "SD2 import error! Unable to create groups."
         });
 
-    }).catch(err => {
-        console.log(err)
-        importExportStatus.innerText = "Something went wrong. Please try again"
-    });
+        // 为每个 dial 生成书签，groupId 使用映射（找不到默认 home）
+        origDials.forEach(d => {
+            const mappedGroupId = groupIdMap[String(d.idgroup)] || 'home';
+            newBookmarks.push({
+                id: generateId(),
+                title: d.title,
+                url: d.url,
+                groupId: mappedGroupId,
+                visits: d.visits,
+                position: d.position,
+                thumbnail: d.thumbnail,
+                createtime: d.ts_created
+            });
+        });
+
+        return {
+            groups: newGroups,
+            bookmarks: newBookmarks,
+            settings: state.defaults
+        };
+    } else {
+        // todo: 逻辑还需要完善
+        // ----- 合并逻辑：尽量复用同名分组并避免重复书签 -----
+        // chrome.storage.local.get(['groups', 'bookmarks']).then(result => {
+        //     const existingGroups = Array.isArray(result.groups) ? result.groups.slice() : [];
+        //     const existingBookmarks = Array.isArray(result.bookmarks) ? result.bookmarks.slice() : [];
+
+        //     // 索引：按 title 查找已有组（用于尝试复用），并按 id 查找已有组
+        //     const groupByTitle = {};
+        //     const groupById = {};
+        //     existingGroups.forEach(g => {
+        //         if (g && g.title) groupByTitle[g.title] = g;
+        //         if (g && g.id !== undefined) groupById[String(g.id)] = g;
+        //     });
+
+        //     // 确保存在 id 为 'home' 的组（导入的 id=0 会映射到 'home'）
+        //     if (!groupById['home']) {
+        //         // 尝试找一个原始导入 group.id===0 的 title 来命名 home，否则用 'Home'
+        //         const importedHome = origGroups.find(g => g.id === 0);
+        //         const homeTitle = importedHome ? importedHome.title : 'Home';
+        //         const homeGroup = { id: 'home', title: homeTitle, position: 0 };
+        //         existingGroups.push(homeGroup);
+        //         groupByTitle[homeTitle] = homeGroup;
+        //         groupById['home'] = homeGroup;
+        //     }
+
+        //     // 处理每个原始分组：如果已有同名组则复用其 id，否则创建新 id 并加入 existingGroups
+        //     origGroups.forEach(g => {
+        //         const key = String(g.id);
+        //         if (g.id === 0) {
+        //             groupIdMap[key] = 'home';
+        //         } else {
+        //             const sameTitle = groupByTitle[g.title];
+        //             if (sameTitle) {
+        //                 groupIdMap[key] = sameTitle.id;
+        //             } else {
+        //                 const newId = 'G.' + generateId();
+        //                 const newGroup = { id: newId, title: g.title, position: g.position };
+        //                 existingGroups.push(newGroup);
+        //                 groupByTitle[newGroup.title] = newGroup;
+        //                 groupById[newId] = newGroup;
+        //                 groupIdMap[key] = newId;
+        //             }
+        //         }
+        //     });
+
+        //     // 处理书签：检查（url + groupId）是否已存在，若不存在则加入
+        //     origDials.forEach(d => {
+        //         const mappedGroupId = groupIdMap[String(d.idgroup)] || 'home';
+        //         const exists = existingBookmarks.some(b => b.url === d.url && b.groupId === mappedGroupId);
+        //         if (!exists) {
+        //             existingBookmarks.push({
+        //                 id: 'B.' + generateId(),
+        //                 title: d.title,
+        //                 url: d.url,
+        //                 groupId: mappedGroupId,
+        //                 visits: d.visits,
+        //                 position: d.position,
+        //                 thumbnail: d.thumbnail,
+        //                 createtime: d.ts_created
+        //             });
+        //         }
+        //     });
+
+        //     // 写回 storage
+        //     return chrome.storage.local.set({
+        //         groups: existingGroups,
+        //         bookmarks: existingBookmarks
+        //     });
+        // }).then(() => {
+        //     hideModals();
+        //     processRefresh();
+        // }).catch(err => {
+        //     console.error(err);
+        //     DOM.importExportStatus.innerText = "SD2 import error! Unable to merge bookmarks.";
+        // });
+    }
 }
 
 export function importFromFVD(json) {

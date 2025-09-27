@@ -37,6 +37,7 @@ export let state = {
         bookmarkSize: 'medium',
         dialRatio: 'wide',
         currentGroupId: homeGroupId,
+        i18nLanguage: chrome.i18n.getUILanguage(), // 设置 UI 语言
     },
 
     scrollPos: 0,   // 存储书签容器的滚动位置，用于分组切换或刷新后恢复之前的滚动状态。

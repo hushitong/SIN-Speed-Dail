@@ -364,6 +364,11 @@ a {
     transition: 160ms;
 }
 
+.modal-importExport {
+    padding: 5px;
+    width: 820px;
+}
+
 .modalImg-item {
     height: 180px;
 }

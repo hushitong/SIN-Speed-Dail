@@ -41,7 +41,7 @@
     border: none;
     font-size: 24px;
     color: #aaa;
-    cursor: default;
+    cursor: pointer;
     transition: all 200ms ease;
 }
 
@@ -262,3 +262,5 @@
     color: lightgreen;
     transition: opacity 200ms ease-in-out;
 }
+
+

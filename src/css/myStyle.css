@@ -1,0 +1,239 @@
+ /* 限定在模态框内的样式 */
+ #importExportModal {
+     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+ }
+
+ #importExportModal .modal-content {
+     background: white;
+     border-radius: 12px;
+     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+     overflow: hidden;
+     width: 90%;
+     max-width: 900px;
+     margin: 0 auto;
+ }
+
+ #importExportModal #importExportModalName {
+     background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+     color: white;
+     padding: 10px 30px;
+     position: relative;
+ }
+
+ #importExportModal #importExportModalName strong {
+     font-size: 20px;
+     font-weight: 600;
+ }
+
+ #importExportModal .close {
+     position: absolute;
+     right: 20px;
+     top: 10px;
+     font-size: 22px;
+     cursor: pointer;
+     opacity: 0.8;
+     transition: opacity 0.3s;
+ }
+
+ #importExportModal .close:hover {
+     opacity: 1;
+ }
+
+ #importExportModal .tileForm {
+     padding: 0;
+ }
+
+ #importExportModal .formItem {
+     padding: 0 30px;
+     /* margin: 20px 0; */
+ }
+
+ #importExportModal label {
+     display: block;
+     color: #4a5568;
+     line-height: 1.5;
+     font-size: 14px;
+ }
+
+ #importExportModal .importExportBtnDiv {
+     display: flex;
+     padding: 0 30px 30px;
+     gap: 30px;
+ }
+
+ #importExportModal fieldset {
+     flex: 1;
+     border: 1px solid #e1e5eb;
+     border-radius: 8px;
+     padding: 20px;
+     background: #fafbfc;
+     transition: all 0.3s ease;
+ }
+
+ #importExportModal fieldset:hover {
+     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+     transform: translateY(-2px);
+ }
+
+ #importExportModal legend {
+     padding: 0 10px;
+     font-size: 18px;
+     color: #2d3748;
+     font-weight: 600;
+ }
+
+ #importExportModal .importExportForm {
+     margin-top: 20px;
+ }
+
+ /* 文件上传样式 */
+ #importExportModal #importFile {
+     display: none;
+ }
+
+ #importExportModal .fileInput {
+     display: inline-block;
+     background: #4b6cb7;
+     color: white;
+     padding: 10px 20px;
+     border-radius: 6px;
+     cursor: pointer;
+     transition: all 0.3s ease;
+     text-align: center;
+     font-weight: 500;
+     box-shadow: 0 2px 5px rgba(75, 108, 183, 0.3);
+ }
+
+ #importExportModal .fileInput:hover {
+     background: #3a5ca0;
+     transform: translateY(-2px);
+     box-shadow: 0 4px 8px rgba(75, 108, 183, 0.4);
+ }
+
+ /* 选项行样式 */
+ #importExportModal .row {
+     display: flex;
+     align-items: center;
+     margin-bottom: 15px;
+     padding: 10px;
+     background: white;
+     border-radius: 6px;
+     border: 1px solid #e2e8f0;
+     transition: all 0.2s ease;
+ }
+
+ #importExportModal .row:hover {
+     border-color: #4b6cb7;
+     box-shadow: 0 2px 5px rgba(75, 108, 183, 0.1);
+ }
+
+ #importExportModal .column {
+     flex: 1;
+ }
+
+ #importExportModal .column.controls {
+     flex: 0 0 auto;
+     text-align: right;
+ }
+
+ /* 自定义复选框样式 */
+ /* #importExportModal input[type="checkbox"] {
+     display: none;
+ } */
+
+ #importExportModal input[type="checkbox"]+label {
+     position: relative;
+     padding-left: 35px;
+     cursor: pointer;
+     display: inline-block;
+     color: #4a5568;
+     margin-bottom: 0;
+ }
+
+ #importExportModal input[type="checkbox"]+label:before {
+     content: '';
+     position: absolute;
+     left: 0;
+     top: 0;
+     width: 22px;
+     height: 22px;
+     border: 2px solid #cbd5e0;
+     border-radius: 4px;
+     background: white;
+     transition: all 0.3s ease;
+ }
+
+ #importExportModal input[type="checkbox"]:checked+label:before {
+     background: #4b6cb7;
+     border-color: #4b6cb7;
+ }
+
+ #importExportModal input[type="checkbox"]+label:after {
+     content: '';
+     position: absolute;
+     left: 7px;
+     top: 4px;
+     width: 8px;
+     height: 12px;
+     border: solid white;
+     border-width: 0 2px 2px 0;
+     transform: rotate(45deg);
+     opacity: 0;
+     transition: all 0.3s ease;
+ }
+
+ #importExportModal input[type="checkbox"]:checked+label:after {
+     opacity: 1;
+ }
+
+ /* 导出按钮样式 */
+ #importExportModal #exportBtn {
+     display: inline-block;
+     background: #38a169;
+     color: white;
+     padding: 12px 25px;
+     border-radius: 6px;
+     text-decoration: none;
+     text-align: center;
+     font-weight: 500;
+     transition: all 0.3s ease;
+     box-shadow: 0 2px 5px rgba(56, 161, 105, 0.3);
+     border: none;
+     cursor: pointer;
+     width: 100%;
+ }
+
+ #importExportModal #exportBtn:hover:not(.disabled) {
+     background: #2f855a;
+     transform: translateY(-2px);
+     box-shadow: 0 4px 8px rgba(56, 161, 105, 0.4);
+ }
+
+ #importExportModal #exportBtn.disabled {
+     background: #a0aec0;
+     cursor: not-allowed;
+     box-shadow: none;
+ }
+
+ /* 响应式设计 */
+ @media (max-width: 768px) {
+     #importExportModal .importExportBtnDiv {
+         flex-direction: column;
+     }
+
+     #importExportModal fieldset {
+         width: 100%;
+     }
+ }
+
+ #importExportModal .note {
+     font-size: 12px;
+     color: #718096;
+     margin-top: 5px;
+     font-style: italic;
+ }
+
+ #importExportModal #statusMessage {
+     color: #e53e3e;
+     font-weight: 500;
+ }

@@ -1,6 +1,30 @@
 import { state } from "./state.js";
 import { animate } from "./ui.js";
 
+let translations = {}; // 缓存翻译
+
+export async function apply_i18n(locale) {
+    translations = await loadTranslations(locale);
+    document.querySelectorAll("[data-locale]").forEach(elem => {
+        if (translations[elem.dataset.locale])
+            elem.textContent = translations[elem.dataset.locale].message;
+    });
+}
+async function loadTranslations(locale) {
+    try {
+        const url = chrome.runtime.getURL(`_locales/${locale}/messages.json`);
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('加载翻译失败');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(error);
+        // 回退到默认语言，例如 'en'
+        return await loadTranslations('en');
+    }
+}
+
 // 程序化设置输入框（如颜色选择器）的值，并触发input事件。
 export function setInputValue(inputElement, value) {
     inputElement.value = value;
