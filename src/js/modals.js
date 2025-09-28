@@ -7,8 +7,8 @@
 */
 import { DOM } from "./dom.js"
 import { state } from "./state.js";
-import { getThumbs } from "./bookmarks.js";
-import { setInputValue, rgbToHex, cssGradientToHex,filterDials } from "./utils.js";
+import { getThumbsFromLocal } from "./bookmarks.js";
+import { setInputValue, rgbToHex, cssGradientToHex,filterDials,getBgColor } from "./utils.js";
 import { hideSettings } from "./ui.js";
 
 // 显示添加书签模态框
@@ -19,7 +19,8 @@ export function buildCreateBookmarkModal(parentGroupId) {
 }
 
 // 显示编辑书签模态框
-export async function editBookmarkModal(url, title) {
+export async function editBookmarkModal(url, title,id) {
+    console.log("editBookmarkModal",url,title);
     // nuke any previous modal
     let carousel = document.getElementById("carousel");
     if (carousel) {
@@ -38,7 +39,7 @@ export async function editBookmarkModal(url, title) {
     //let createdCarousel = document.getElementById('carousel');
     DOM.modalTitle.value = title;
     DOM.modalURL.value = url;
-    let images = await getThumbs(url);
+    let images = await getThumbsFromLocal(id);
     if (images && images.thumbnails.length) {
         // clunky af
         let index = images.thumbIndex;

@@ -7,13 +7,7 @@
 const homeGroupId = 'home';
 
 export let state = {
-    data: {},
-    settings: null,
-    wallpaperSrc: null, // 存储背景图地址
-    defaultWallpaperSrc: "img/bg.jpg",  // 背景图默认地址
-    currentGroupId: null,
-    selectedGroupId: null,
-
+    // 默认分组
     homeGroup: {
         id: homeGroupId,
         title: chrome.i18n.getMessage('home'),
@@ -40,10 +34,21 @@ export let state = {
         i18nLanguage: chrome.i18n.getUILanguage(), // 设置 UI 语言
     },
 
+    defaultWallpaperSrc: "img/bg.jpg",  // 背景图默认地址
+    defaultThumbPrefix: 'thumb_', // 缩略图在 storage 中的 key 前缀
+
+    data: {},
+    settings: null,
+    wallpaperSrc: null, // 存储背景图地址
+
+    currentGroupId: null,
+    selectedGroupId: null,
+
     scrollPos: 0,   // 存储书签容器的滚动位置，用于分组切换或刷新后恢复之前的滚动状态。
     layoutgroup: false,
 
-    targetTileTitle: null, // 存储当前操作的书签（tile）的唯一 ID，用于删除、编辑等操作时定位具体书签。
+    targetTileId : null,  // 存储当前操作的书签（tile）的唯一 ID，用于删除、编辑等操作时定位具体书签。 格式为：groupId_bookmarkId
+    targetTileTitle: null, // 存储当前操作的书签（tile）的 标题，用于删除、编辑等操作时定位具体书签。
     targetTileHref: null,  // 存储当前操作的书签（tile）的 URL 链接，用于上下文菜单、编辑模态框等场景中获取目标书签的链接信息。
     targetNode: null,  // 存储当前操作的 DOM 节点（如书签元素、分组元素），用于拖拽、上下文菜单定位等场景。
     targetGroupId: null,   // 存储当前操作的分组的唯一 ID，用于分组编辑、删除、移动等操作时定位具体分组。

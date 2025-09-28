@@ -1,7 +1,7 @@
 import { state } from "./state.js"
 import { DOM } from "./dom.js"
 import { getData, saveData } from "./data.js"
-import { generateId } from "./utils.js";
+import { generateId, hexToCssGradient, rgbaToCssGradient, rgbToHex, getBgColor } from "./utils.js";
 import { hideModals, buildCreateBookmarkModal, modalShowEffect } from "./modals.js";
 import { showToast, animate, hideSettings } from "./ui.js";
 import { onMoveHandler, onEndHandler } from "./events.js";
@@ -68,31 +68,34 @@ export async function saveNewBookmark(groupId, url, title) {
 
 // 实际作用就是根据 groupId 和 bookmarks 数组，生成指定分组的书签列表的 DOM 节点并插入到页面中
 // selectedGroupId 是要显示的分组，bookmarks 是该分组的书签数组
-export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
+export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
     console.log("printBookmarksByGroupId:", bookmarks, selectedGroupId);
     let fragment = document.createDocumentFragment();
 
     // Collect URLs for batch thumbnail fetching
     //let urls = bookmarks.filter(b => b.url?.startsWith("http")).map(b => b.url);
 
-    // lets message the background script to do it
-
+    // todo: 使用批量获取缩略图，优化性能
     // chrome.runtime.sendMessage({target: 'background', type: 'getThumbs', data: bookmarks})
-    //let thumbnails = await chrome.storage.local.get(urls);
 
     // 当该分组具有书签时，生成书签 DOM 节点
     if (bookmarks) {
         if (state.settings.defaultSort === "first") {
             bookmarks = bookmarks.reverse();
         }
+
+        let thumbIds = bookmarks.map(b => state.defaultThumbPrefix + b.id);
+        let thumbnails = await chrome.storage.local.get(thumbIds);
+        console.log("thumbnails fetched:", thumbnails);
+
         for (let bookmark of bookmarks.filter(b => b.groupId === selectedGroupId)) {
             console.log("processing bookmark:", bookmark);
             // if (!bookmark.url && bookmark.title && bookmark.groupId === selectedGroupId) continue;
 
             if (bookmark.url?.startsWith("http")) {
-                //let images = thumbnails[bookmark.url] || {};
-                //let thumbUrl = images.thumbnails?.[images.thumbIndex] || null;
-                //let thumbBg = images.bgColor || null;
+                let images = thumbnails[state.defaultThumbPrefix + bookmark.id] || {};
+                let thumbData = images.thumbnails?.[images.thumbIndex] || null;
+                let thumbBg = images.bgColor || null;
 
                 let a = document.createElement('a');
                 a.classList.add('tile');
@@ -106,6 +109,10 @@ export async function printBookmarksByGroupId(bookmarks, selectedGroupId) {
                 content.setAttribute('id', bookmark.groupId + "-" + bookmark.id);
                 content.classList.add('tile-content');
                 content.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+
+                console.log("thumbData, thumbBg", thumbData, thumbBg);
+                content.style.backgroundImage = thumbBg ? `url('${thumbData}'), ${thumbBg}` : '';
+                // content.style.backgroundColor = thumbBg ? '' : 'rgba(255, 255, 255, 0.5)';
 
                 let title = document.createElement('div');
                 title.classList.add('tile-title');
@@ -313,12 +320,14 @@ export async function removeBookmark(id) {
 // 书签缩略图相关
 ///////////////////////////////////////////////////////////////
 
-// 根据书签url，到本地存储找对应的缩略图
-export function getThumbs(bookmarkUrl) {
-    return chrome.storage.local.get(bookmarkUrl)
+// 根据书签url，到本地存储找对应的缩略图，其key为Thumb.加书签id组合成
+export function getThumbsFromLocal(bookmarkId) {
+    const localKey = state.defaultThumbPrefix + bookmarkId;
+    console.log("getThumbsFromLocal", localKey);
+    return chrome.storage.local.get(localKey)
         .then(result => {
-            if (result[bookmarkUrl]) {
-                return result[bookmarkUrl];
+            if (result[localKey]) {
+                return result[localKey];
             }
         });
 }
@@ -411,17 +420,18 @@ function batchApplyImages(elements) {
     });
 }
 
-
+// 保存书签设定
 export function saveBookmarkSettings() {
+    let id = state.targetTileId.split('-')[1];
     // todo: cleanup this abomination when im not on drugs
-    let title = modalTitle.value;
-    let url = targetTileHref;
-    let newUrl = rectifyUrl(modalURL.value.trim());
+    let title = DOM.modalTitle.value;
+    let url = state.targetTileHref;
+    let newUrl = rectifyUrl(DOM.modalURL.value.trim());
     let selectedImageSrc = null;
     let thumbIndex = 0;
     let imageNodes = document.getElementsByClassName('fc-slide');
     let bgColor = null;
-    let colorPickerColor = modalBgColorPickerInput.value;
+    let colorPickerColor = DOM.modalBgColorPickerInput.value;
 
     let customCarousel = document.getElementById('customCarousel');
     if (customCarousel) {
@@ -433,7 +443,7 @@ export function saveBookmarkSettings() {
         } else {
             bgColor = rgbaToCssGradient(bgColor);
         }
-        targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
+        state.targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
         //targetNode.children[0].children[0].style.backgroundColor = bgColor;
         chrome.storage.local.get(url)
             .then(result => {
@@ -446,9 +456,9 @@ export function saveBookmarkSettings() {
                     thumbnails.push(selectedImageSrc);
                     thumbIndex = 0;
                 }
-                chrome.storage.local.set({ [newUrl]: { thumbnails, thumbIndex, bgColor } }).then(result => {
+                chrome.storage.local.set({ [state.defaultThumbPrefix + id]: { thumbnails, thumbIndex, bgColor } }).then(result => {
                     //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
-                    if (title !== targetTileTitle) {
+                    if (title !== state.targetTileTitle) {
                         updateTitle()
                     }
                 });
@@ -473,7 +483,7 @@ export function saveBookmarkSettings() {
                 }
 
                 // update tile
-                targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
+                state.targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
                 //targetNode.children[0].children[0].style.backgroundColor = bgColor;
                 break;
             }
@@ -487,17 +497,17 @@ export function saveBookmarkSettings() {
                     if (thumbIndex >= 0) {
                         chrome.storage.local.set({ [newUrl]: { thumbnails, thumbIndex, bgColor } }).then(result => {
                             //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
-                            if (title !== targetTileTitle || url !== newUrl) {
+                            if (title !== state.targetTileTitle || url !== newUrl) {
                                 updateTitle()
                             }
                         });
                     } else {
-                        if (title !== targetTileTitle || url !== newUrl) {
+                        if (title !== state.targetTileTitle || url !== newUrl) {
                             updateTitle()
                         }
                     }
                 } else {
-                    if (title !== targetTileTitle || url !== newUrl) {
+                    if (title !== state.targetTileTitle || url !== newUrl) {
                         updateTitle()
                     }
                 }

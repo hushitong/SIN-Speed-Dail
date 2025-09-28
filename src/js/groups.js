@@ -1,7 +1,7 @@
 import { state } from "./state.js"
 import { DOM } from "./dom.js"
 import { dragenterHandler, dragleaveHandler } from "./events.js";
-import { printBookmarksByGroupId } from "./bookmarks.js";
+import { buildBookmarksByGroupId } from "./bookmarks.js";
 import { generateId } from "./utils.js";
 import { saveData } from "./data.js"
 import { showToast, animate, hideSettings } from "./ui.js";
@@ -39,15 +39,15 @@ export function showGroup(groupId) {
 }
 
 // 重新生成所有分组链接
-export function groupsLinks(groups) {
+export function buildGroupsLinks(groups) {
     if (groups.length >= 1) {
         for (let group of groups) {
-            groupLink(group.title, group.id);
+            buildGroupLink(group.title, group.id);
         }
     }
 }
 // 生成单个分组链接，并设置 class 和 click 事件
-export function groupLink(groupTitle, groupId) {
+export function buildGroupLink(groupTitle, groupId) {
     let a = document.createElement('a');
     if (groupId === state.homeGroup.id) {
         a.id = "homegroupLink";
@@ -92,7 +92,7 @@ export function createGroup() {
     saveData({ groups }).then(() => {
         hideModals();
         reBuildGroupPages();
-        printBookmarksByGroupId([], id);
+        buildBookmarksByGroupId([], id);
     });
 }
 
@@ -126,7 +126,7 @@ export function removeGroup() {
             state.settings.currentGroupId = homeGroupId;
             chrome.storage.local.set({ settings: state.settings });
             reBuildGroupPages();
-            printBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
+            buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
             showGroup(homeGroupId);
         } else {
             reBuildGroupPages();

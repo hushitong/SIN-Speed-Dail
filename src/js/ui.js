@@ -1,8 +1,8 @@
 import { DOM } from "./dom.js";
 import { state } from "./state.js";
 import { getData, saveData } from "./data.js";
-import { groupsLinks, groupLink } from "./groups.js";
-import { printBookmarksByGroupId as displayGroupBookmarksByGroupId } from "./bookmarks.js";
+import { buildGroupsLinks, buildGroupLink } from "./groups.js";
+import { buildBookmarksByGroupId } from "./bookmarks.js";
 import { resizeBackground } from "./utils.js";
 
 let windowSize = null;  // 设计用于存储窗口大小信息?
@@ -40,18 +40,18 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     // 清空原有的分组头内容
     DOM.groupsContainer.innerHTML = '';
     // 重新生成所有分组链接
-    groupsLinks(groups);
+    buildGroupsLinks(groups);
 
     // 根据当前选择的分组ID，显示对应的分组书签内容
     const currentGroupBookmarks = state.data.bookmarks.filter(b => b.groupId === selectedGroupId);
-    await displayGroupBookmarksByGroupId(currentGroupBookmarks, selectedGroupId);
+    await buildBookmarksByGroupId(currentGroupBookmarks, selectedGroupId);
 
     // 在排除当前分组后，处理其他分组的书签
     if (groups.length > 1) {
         for (let group of groups) {
             if (group.id !== selectedGroupId) {
                 const bookmarks = state.data.bookmarks.filter(b => b.groupId === group.id);
-                await displayGroupBookmarksByGroupId(bookmarks, group.id);
+                await buildBookmarksByGroupId(bookmarks, group.id);
             }
         }
     }
@@ -94,7 +94,7 @@ export async function reBuildGroupPages(inData = null) {
     // Build group header links
     if (groups && groups.length > 1) {
         for (let group of groups) {
-            groupLink(group.title, group.id);
+            buildGroupLink(group.title, group.id);
         }
     }
 
@@ -266,7 +266,8 @@ export const processRefresh = debounce(({ groupsOnly = false, currentGroupId = s
 
         //bookmarksContainer.style.opacity = "0";
 
-        buildPages(currentGroupId)
+        buildGroupsAndBookmarksPages(currentGroupId);
+        // buildPages(currentGroupId)
     }
 }, 650, true);
 

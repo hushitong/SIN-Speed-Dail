@@ -22,8 +22,6 @@ import {
 import { createGroup, editGroup, removeGroup, moveGroup, showGroup } from "./groups.js";
 import { state } from "./state.js"
 
-
-let targetTileId = null;
 let targetGroupName = null;
 let targetGroupLink = null;
 const helpUrl = 'https://conceptualspace.github.io/yet-another-speed-dial/';
@@ -55,7 +53,7 @@ export function initEvents() {
         if (e.target.className === 'tile-content') {
             state.targetNode = e.target.parentElement.parentElement;
             state.targetTileHref = e.target.parentElement.parentElement.href;
-            targetTileId = e.target.id;
+            state.targetTileId = e.target.id;
             state.targetTileTitle = e.target.nextElementSibling.innerText;
             showContextMenu(DOM.menu, e.pageY, e.pageX);
             return false;
@@ -146,7 +144,8 @@ export function initEvents() {
                         modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
                         break;
                     case 'edit':
-                        editBookmarkModal(state.targetTileHref, state.targetTileTitle).then(() => {
+                        const id = state.targetTileId.split('-')[1];
+                        editBookmarkModal(state.targetTileHref, state.targetTileTitle,id).then(() => {
                             modalShowEffect(DOM.modalContent, DOM.modal);
                         });
                         break;
@@ -157,7 +156,7 @@ export function initEvents() {
                         modalShowEffect(DOM.refreshAllModalContent, DOM.refreshAllModal);
                         break;
                     case 'delete':
-                        removeBookmark(targetTileId.split('-')[1]);
+                        removeBookmark(state.targetTileId.split('-')[1]);
                         break;
                     case 'newgroup':
                         e.preventDefault();

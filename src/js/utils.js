@@ -248,14 +248,14 @@ function hexToRgba(hex) {
 }
 
 // 将十六进制颜色转换为 CSS 渐变字符串（本质为纯色渐变）。
-function hexToCssGradient(hex) {
+export function hexToCssGradient(hex) {
     // Convert hex color to CSS gradient string
     let rgba = hexToRgba(hex);
     return rgbaToCssGradient(rgba);
 }
 
 // 将 RGBA 数组转换为 CSS 渐变字符串（本质为纯色渐变）。
-function rgbaToCssGradient(rgba) {
+export function rgbaToCssGradient(rgba) {
     // Convert RGBA values to CSS gradient string
     // gradient is used as a shortcut to set the background color at same time as image
     return `linear-gradient(to bottom, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%)`;
