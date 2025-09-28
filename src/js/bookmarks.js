@@ -15,16 +15,16 @@ function rectifyUrl(url) {
 }
 
 // 添加新书签
-export function createDial() {
-    console.log('createDial', DOM.createDialModalURL);
+export function createBookmark() {
+    console.log("createBookmark");
     let url = rectifyUrl(DOM.createDialModalURL.value.trim());
     // todo: 真正使用标题而不是 URL 作为标题
     let title = url;
-    saveNewBookmark(state.currentGroupId, url, title).then(_ => {
+    saveNewBookmark(state.currentGroupId, url, title).then(result => {
         hideModals();
         showToast(' Capturing images...');
-        console.log('createDial sendMessage');
-        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId: state.currentGroupId, changeType: 'Add' } });
+        console.log('createBookmark sendMessage');
+        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { id: result, url: url, groupId: state.currentGroupId, changeType: 'Add' } });
     });
 }
 
@@ -39,8 +39,9 @@ export async function saveNewBookmark(groupId, url, title) {
         ? Math.max(...groupBookmarks.map(b => b.position || 0))
         : 0;
 
+    const newId = generateId();
     const newBookmark = {
-        id: generateId(),
+        id: newId,
         groupId: groupId,
         title: title,
         url: url,
@@ -52,6 +53,9 @@ export async function saveNewBookmark(groupId, url, title) {
 
     data.bookmarks.push(newBookmark);
     await saveData(data);
+    state.data = data; // 更新全局状态
+    buildBookmarksByGroupId(data.bookmarks.filter(b => b.groupId === groupId), groupId);
+    return newId;
 }
 
 // function getBookmarks(groupId) {
@@ -89,7 +93,7 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
         console.log("thumbnails fetched:", thumbnails);
 
         for (let bookmark of bookmarks.filter(b => b.groupId === selectedGroupId)) {
-            console.log("processing bookmark:", bookmark);
+            // console.log("processing bookmark:", bookmark);
             // if (!bookmark.url && bookmark.title && bookmark.groupId === selectedGroupId) continue;
 
             if (bookmark.url?.startsWith("http")) {
@@ -110,7 +114,6 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
                 content.classList.add('tile-content');
                 content.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 
-                console.log("thumbData, thumbBg", thumbData, thumbBg);
                 content.style.backgroundImage = thumbBg ? `url('${thumbData}'), ${thumbBg}` : '';
                 // content.style.backgroundColor = thumbBg ? '' : 'rgba(255, 255, 255, 0.5)';
 
@@ -370,25 +373,37 @@ export function refreshAllThumbnails() {
 // settings related
 ///////////////////////////////////////////////////////////////
 
-function setBackgroundImages(thumbnails) {
+// 获得由background.js发送回来的书签缩略图数据，批量设置书签缩略图
+// Data example:
+// target: 'newtab',
+// type: 'thumbBatch',
+// data: [{
+//     id,
+//     groupId: groupId,
+//     url,
+//     thumbnail: images[0],
+//     bgColor
+// }]
+export function setBackgroundImages(thumbDatas) {
+    console.log("setBackgroundImages", thumbDatas);
     const elementsToUpdate = [];
     const observers = new Map();
 
-    thumbnails.forEach(thumb => {
-        const id = thumb.parentId + "-" + thumb.id;
-        let element = document.getElementById(id);
+    thumbDatas.forEach(thumb => {
+        const id = thumb.groupId + "-" + thumb.id;
+        let element = document.getElementById(id);  // 获得需要设置背景图的 DOM 元素
 
-        if (element) {
+        if (element) {  // 如果元素已经在 DOM 中，则直接更新
             elementsToUpdate.push({ element, thumb });
-        } else {
-            let observer = observers.get(thumb.parentId);
+        } else {    // 如果元素还没被插入 DOM，则使用 MutationObserver 监听其父元素的变化
+            let observer = observers.get(thumb.groupId);
             if (!observer) {
-                const parentElement = document.getElementById(thumb.parentId);
+                const parentElement = document.getElementById(thumb.groupId);
                 if (!parentElement) return; // Skip if parent is missing
 
                 observer = new MutationObserver((mutations, obs) => {
-                    thumbnails.forEach(t => {
-                        const el = document.getElementById(t.parentId + "-" + t.id);
+                    thumbDatas.forEach(t => {
+                        const el = document.getElementById(t.groupId + "-" + t.id);
                         if (el) {
                             elementsToUpdate.push({ element: el, thumb: t });
                         }
@@ -401,7 +416,7 @@ function setBackgroundImages(thumbnails) {
                 });
 
                 observer.observe(parentElement, { childList: true, subtree: true });
-                observers.set(thumb.parentId, observer);
+                observers.set(thumb.groupId, observer);
             }
         }
     });
@@ -412,6 +427,7 @@ function setBackgroundImages(thumbnails) {
 }
 
 function batchApplyImages(elements) {
+    console.log("batchApplyImages", elements);
     requestAnimationFrame(() => {
         elements.forEach(({ element, thumb }) => {
             element.style.backgroundColor = "unset";
@@ -420,8 +436,8 @@ function batchApplyImages(elements) {
     });
 }
 
-// 保存书签设定
-export function saveBookmarkSettings() {
+// 修改书签
+export function saveBookmark() {
     let id = state.targetTileId.split('-')[1];
     // todo: cleanup this abomination when im not on drugs
     let title = DOM.modalTitle.value;
@@ -434,6 +450,7 @@ export function saveBookmarkSettings() {
     let colorPickerColor = DOM.modalBgColorPickerInput.value;
 
     let customCarousel = document.getElementById('customCarousel');
+    console.log("saveBookmarkSettings", id, title, url, newUrl, imageNodes, customCarousel, colorPickerColor);
     if (customCarousel) {
         selectedImageSrc = customCarousel.children[0].src;
         bgColor = getBgColor(customCarousel.children[0]);

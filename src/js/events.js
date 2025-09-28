@@ -15,9 +15,9 @@ import {
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
-    saveBookmarkSettings,
-    createDial, removeBookmark, moveBookmark,
-    refreshThumbnails, refreshAllThumbnails
+    saveBookmark,
+    createBookmark, removeBookmark, moveBookmark,
+    setBackgroundImages, refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
 import { createGroup, editGroup, removeGroup, moveGroup, showGroup } from "./groups.js";
 import { state } from "./state.js"
@@ -143,9 +143,9 @@ export function initEvents() {
                         buildCreateBookmarkModal(state.currentGroupId);
                         modalShowEffect(DOM.createDialModalContent, DOM.createDialModal);
                         break;
-                    case 'edit':
+                    case 'editBookmark':
                         const id = state.targetTileId.split('-')[1];
-                        editBookmarkModal(state.targetTileHref, state.targetTileTitle,id).then(() => {
+                        editBookmarkModal(state.targetTileHref, state.targetTileTitle, id).then(() => {
                             modalShowEffect(DOM.modalContent, DOM.modal);
                         });
                         break;
@@ -194,8 +194,8 @@ export function initEvents() {
     // 窗口大小调整
     window.addEventListener('resize', onResize);
 
-    DOM.modalSave.addEventListener("click", saveBookmarkSettings);
-    DOM.createDialModalSave.addEventListener("click", createDial);
+    DOM.createBookmarkModalSave.addEventListener("click", createBookmark);
+    DOM.editBookmarkModalSave.addEventListener("click", saveBookmark);
     DOM.addGroupButton.addEventListener("click", addGroupBtn);
     DOM.createGroupModalSave.addEventListener("click", createGroup);
     DOM.editGroupModalSave.addEventListener("click", editGroup);
@@ -212,21 +212,21 @@ export function initEvents() {
     DOM.modalTitle.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            saveBookmarkSettings();
+            saveBookmark();
         }
     });
 
     DOM.modalURL.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            saveBookmarkSettings();
+            saveBookmark();
         }
     });
 
     DOM.createDialModalURL.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            createDial();
+            createBookmark();
         }
     });
 
@@ -513,7 +513,7 @@ export function initEvents() {
                         state.data = data;
                         hideModals();
                         initSettings(data.settings, state.defaultWallpaperSrc);
-                        console.log(state.currentGroupId,"=========================================",data.settings.currentGroupId)
+                        console.log(state.currentGroupId, "=========================================", data.settings.currentGroupId)
                         buildGroupsAndBookmarksPages(data.settings.currentGroupId);
                         // processRefresh({ currentGroupId: state.homeGroup.id });
                         showToast("导入成功！", 1500);
@@ -576,7 +576,7 @@ function resizeThumb(dataURI) {
 // 处理获取的消息
 function handleMessages(message) {
     console.log(message);
-    if (!message.target === 'newtab') {
+    if (message.target !== 'newtab') {
         return
     }
 
@@ -591,6 +591,17 @@ function handleMessages(message) {
         // data.thumbs is an array of objects containing id, parentId, thumbnail and bgcolor
         //console.log(message.data);
         // todo: background not working?
+
+        // Data example:
+        // target: 'newtab',
+        // type: 'thumbBatch',
+        // data: [{
+        //     id,
+        //     groupId: groupId,
+        //     url,
+        //     thumbnail: images[0],
+        //     bgColor
+        // }]
         setBackgroundImages(message.data);
         hideToast();
     }

@@ -13,7 +13,7 @@ export const DOM = {
     createDialModal: document.getElementById('createDialModal'),
     createDialModalContent: document.getElementById('createDialModalContent'),
     createDialModalURL: document.getElementById('createDialModalURL'),
-    createDialModalSave: document.getElementById('createDialModalSave'),
+    createBookmarkModalSave: document.getElementById('createDialModalSave'),
 
     createGroupModal: document.getElementById('creategroupModal'),
     createGroupModalContent: document.getElementById('creategroupModalContent'),
@@ -45,7 +45,7 @@ export const DOM = {
     toastContent: document.getElementById('toastContent'),
 
     closeModal: document.getElementsByClassName("close"),  // 注意：这是一个集合 (HTMLCollection)，使用时需循环或 Array.from
-    modalSave: document.getElementById('modalSave'),
+    editBookmarkModalSave: document.getElementById('modalSave'),
     sidenav: document.getElementById("sidenav"),
     modalTitle: document.getElementById("modalTitle"),
     modalURL: document.getElementById("modalURL"),

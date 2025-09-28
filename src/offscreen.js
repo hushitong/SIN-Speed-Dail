@@ -1,29 +1,33 @@
-chrome.runtime.onMessage.addListener(handleMessages);
+
 
 const imageRatio = 1.54;    // // 书签缩略图的宽高比，通常为 16:10 或 16:9 的中间值。
 
-function offscreenCanvasShim(w=1, h=1) {
-    try {
-        return new OffscreenCanvas(w, h);
-    } catch (err) {
-        // offscreencanvas not supported in ff
-        let canvas = document.createElement('canvas');
-        canvas.width  = w;
-        canvas.height = h;
-        return canvas;
-    }
-}
+chrome.runtime.onMessage.addListener(handleMessages);
 
+// example message:
+// target: 'offscreen',
+// data: {
+//     url,
+//     id,
+//     groupId: 'home',
+//     screenshot,
+//     quickRefresh: false,
+//     forcePageReload: false,
+// }
+
+// 获得background.js发送过来的消息，获取缩略图数据并再发送回background.js处理
 async function handleMessages(message) {
     if (message.target !== 'offscreen') {
         return;
     }
+    console.log("offscreen got message:", message);
+    console.log("offscreen got screenshot length:", message.data.screenshot ? message.data.screenshot.length : 0);
 
     let screenshot = message.data.screenshot;
     let quickRefresh = message.data.quickRefresh;
     let forcePageReload = message.data.forcePageReload;
     let id = message.data.id;
-    let parentId = message.data.parentId;
+    let groupId = message.data.groupId;
     let resizedImages = [];
     let thumbs = [];
     let bgColor = null;
@@ -46,31 +50,40 @@ async function handleMessages(message) {
 
     if (screenshot) {
         // screenshot is handled separately to remove scrollbars
-        let result = await resizeImage(screenshot, true).catch(err => {
-            console.log(err);
-        });
+        let result =
+            await resizeImage(screenshot, true)
+                .catch(err => {
+                    console.log(err);
+                });
         if (result) {
-            resizedImages.push(result);
+            // 截图放在第一位
+            resizedImages.unshift(result);
         }
     }
 
+    // 只保留5张图
     if (resizedImages && resizedImages.length) {
-        thumbs = resizedImages.filter(item => item).slice(0,5) // only keep 5 -- todo: this will exclude the screenshot if there are many other images
+        thumbs = resizedImages.filter(item => item).slice(0,5)
     }
 
     if (thumbs.length) {
         bgColor = await getBgColor(thumbs[0])
-        
-        //await saveThumbnails(url, thumbs, bgColor)
     }
 
-    chrome.runtime.sendMessage({target: 'background', type: 'saveThumbnails', data: {url, id, parentId, thumbs, bgColor}, forcePageReload});
-    //return title; //todo: why did i do this?
-
-      //chrome.runtime.sendMessage(images);
+    chrome.runtime.sendMessage({ target: 'background', type: 'saveThumbnails', data: { url, id, parentId: groupId, thumbs, bgColor }, forcePageReload });
 }
 
-
+function offscreenCanvasShim(w = 1, h = 1) {
+    try {
+        return new OffscreenCanvas(w, h);
+    } catch (err) {
+        // offscreencanvas not supported in ff
+        let canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        return canvas;
+    }
+}
 
 function convertUrlToAbsolute(origin, path) {
     if (path.indexOf('://') > 0) {
@@ -79,7 +92,7 @@ function convertUrlToAbsolute(origin, path) {
         return 'https:' + path;
     } else {
         let url = new URL(origin);
-        if (path.slice(0,1) === "/") {
+        if (path.slice(0, 1) === "/") {
             return url.origin + path;
         } else {
             if (url.pathname.slice(-1) !== "/") {
@@ -92,21 +105,21 @@ function convertUrlToAbsolute(origin, path) {
 
 function colorsAreSimilar(color1, color2, tolerance = 2) {
     return Math.abs(color1[0] - color2[0]) <= tolerance &&
-           Math.abs(color1[1] - color2[1]) <= tolerance &&
-           Math.abs(color1[2] - color2[2]) <= tolerance &&
-           Math.abs(color1[3] - color2[3]) <= tolerance;
+        Math.abs(color1[1] - color2[1]) <= tolerance &&
+        Math.abs(color1[2] - color2[2]) <= tolerance &&
+        Math.abs(color1[3] - color2[3]) <= tolerance;
 }
 
 function getBgColor(image) {
     // todo: ensure this is performant
     // todo: ensure our similar color counting is accurate, same as index
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         let img = new Image();
         img.onload = function () {
             let imgWidth = img.naturalWidth;
             let imgHeight = img.naturalHeight;
             let canvas = offscreenCanvasShim(imgWidth, imgHeight);
-            let context = canvas.getContext('2d', {willReadFrequently:true});
+            let context = canvas.getContext('2d', { willReadFrequently: true });
             context.drawImage(img, 0, 0);
 
             let totalPixels = 0;
@@ -117,7 +130,7 @@ function getBgColor(image) {
             // background color algorithm
             // think the results are best when sampling 2 pixels deep from the edges
             // 1px gives bad results from image artifacts, more than 2px means we average away any natural framing/background in the image
-            
+
             // Sample the top and bottom edges
             for (let x = 0; x < imgWidth; x += 2) { // Sample every other pixel
                 for (let y = 0; y < 2; y++) {
@@ -222,7 +235,7 @@ function getBgColor(image) {
                 resolve(`linear-gradient(to bottom, rgba(${avgColor[0]},${avgColor[1]},${avgColor[2]},${avgColor[3]}) 50%, rgba(${avgColor[0]},${avgColor[1]},${avgColor[2]},${avgColor[3]}) 50%)`);
             }
         };
-        img.onerror = function() {
+        img.onerror = function () {
             resolve();
         };
         img.crossOrigin = "Anonymous";
@@ -322,7 +335,7 @@ function resizeImage(image, screenshot = false) {
 function extractBackgroundImages(cssText) {
     const backgroundImages = [];
     const regex = /background(?:-image)?:\s*url\(["']?(.*?)["']?\)/g;
-    
+
     let match;
     while ((match = regex.exec(cssText)) !== null) {
         backgroundImages.push(match[1]); // Extracted URL
@@ -331,6 +344,7 @@ function extractBackgroundImages(cssText) {
     return backgroundImages;
 }
 
+// 功能是：给定一个网址，尽量智能地抓取该网站的代表性图片（favicon、logo、主图、Open Graph 图标、CSS 里引用的 logo 等），并返回一个候选图片列表。
 async function fetchImages(url, quickRefresh) {
 
     const whitelist = [
@@ -353,7 +367,7 @@ async function fetchImages(url, quickRefresh) {
         images.push('img/amazon.com.png');
         // dont fetch other images for the root page
         if (hostname.startsWith('amazon') && hostname.length < 14) {
-            return(images);
+            return (images);
         }
     } else {
         images.push('https://logo.clearbit.com/' + hostname + '?size=256');
@@ -369,13 +383,13 @@ async function fetchImages(url, quickRefresh) {
     }
 
     if (whitelist.includes(hostname)) {
-        return(['img/' + hostname + '.png']);
+        return (['img/' + hostname + '.png']);
     } else {
 
-         // Set up fetch timeout
+        // Set up fetch timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
+
         try {
             const response = await fetch(url, {
                 method: 'GET',
@@ -390,7 +404,7 @@ async function fetchImages(url, quickRefresh) {
             clearTimeout(timeoutId); // Clear timeout if fetch completes in time
 
             if (!response.ok) {
-                return(images);
+                return (images);
             }
 
             const text = await response.text();
@@ -435,7 +449,7 @@ async function fetchImages(url, quickRefresh) {
                 let imageUrl = convertUrlToAbsolute(url, xIcon.getAttribute('href'));
                 insert(imageUrl);
             }
-            
+
             // get large icons
             let sizes = [
                 "512x512",
@@ -466,8 +480,8 @@ async function fetchImages(url, quickRefresh) {
             // if we havent had much luck with images, lets check the style sheets
             if (images.length < 4 && !quickRefresh) {
                 const stylesheetLinks = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'))
-                .map(stylesheet => convertUrlToAbsolute(url, stylesheet.getAttribute('href')));
-            
+                    .map(stylesheet => convertUrlToAbsolute(url, stylesheet.getAttribute('href')));
+
                 for (const sheetUrl of stylesheetLinks) {
                     try {
                         const cssResponse = await fetch(sheetUrl);
@@ -500,3 +514,4 @@ async function fetchImages(url, quickRefresh) {
         }
     }
 }
+
