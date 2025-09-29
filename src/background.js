@@ -46,6 +46,7 @@ async function handleMessages(message) {
 			break;
 		case 'refreshAllThumbs':
 			handleRefreshAllThumbs(message.data);
+			handleRefreshAllThumbs(message.data);
 			break;
 		case 'saveThumbnails':	// 在新增 bookmark 时，由 offscreen 发送回来的缩略图
 			handleOffscreenFetchDone(message.data, message.forcePageReload);
@@ -235,6 +236,16 @@ async function handleRefreshAllThumbs(data) {
 	}
 	refreshBatch(data.bookmarks);
 
+// 刷新当前分组所有书签的缩略图
+async function handleRefreshAllThumbs(data) {
+	// 移除所有书签对应的缩略图缓存
+	for (let bookmark of data.bookmarks) {
+		await chrome.storage.local.remove(defaultThumbPrefix + bookmark.id).catch((err) => {
+			console.log(err);
+		});
+	}
+	refreshBatch(data.bookmarks);
+
 	async function refreshBatch(bookmarks, index = 0, retries = 2) {
 		const batchSize = 200;
 		const delay = 10000;
@@ -242,6 +253,7 @@ async function handleRefreshAllThumbs(data) {
 
 		if (batch.length) {
 			try {
+				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false })));
 				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false })));
 				// todo show progress in UI
 				// todo: we might need to refactor this to promises or timers so the worker doesnt kill the process with a batch scheduled
@@ -262,6 +274,7 @@ async function handleRefreshAllThumbs(data) {
 	}
 }
 
+// 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
 // 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
 async function getThumbnails(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
 	console.log("bg getThumbnails", url, id, groupId, options);
