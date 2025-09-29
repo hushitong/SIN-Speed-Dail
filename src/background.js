@@ -5,6 +5,7 @@
 'use strict';
 
 const defaultThumbPrefix = 'thumb_'; // 缩略图在 storage 中的 key 前缀
+const fetchScreenshotTimeout = 5000; // 截图超时时间，单位毫秒
 
 // EVENT LISTENERS //
 
@@ -44,7 +45,7 @@ async function handleMessages(message) {
 			handleManualRefresh(message.data);
 			break;
 		case 'refreshAllThumbs':
-			handleRefreshAll(message.data);
+			handleRefreshAllThumbs(message.data);
 			break;
 		case 'saveThumbnails':	// 在新增 bookmark 时，由 offscreen 发送回来的缩略图
 			handleOffscreenFetchDone(message.data, message.forcePageReload);
@@ -224,7 +225,16 @@ function handleManualRefresh(data) {
 	}
 }
 
-async function handleRefreshAll(data) {
+// 刷新当前分组所有书签的缩略图
+async function handleRefreshAllThumbs(data) {
+	// 移除所有书签对应的缩略图缓存
+	for (let bookmark of data.bookmarks) {
+		await chrome.storage.local.remove(defaultThumbPrefix + bookmark.id).catch((err) => {
+			console.log(err);
+		});
+	}
+	refreshBatch(data.bookmarks);
+
 	async function refreshBatch(bookmarks, index = 0, retries = 2) {
 		const batchSize = 200;
 		const delay = 10000;
@@ -232,7 +242,7 @@ async function handleRefreshAll(data) {
 
 		if (batch.length) {
 			try {
-				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.parentId, { quickRefresh: true })));
+				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false })));
 				// todo show progress in UI
 				// todo: we might need to refactor this to promises or timers so the worker doesnt kill the process with a batch scheduled
 				setTimeout(() => refreshBatch(bookmarks, index + batchSize, retries), delay);
@@ -250,16 +260,9 @@ async function handleRefreshAll(data) {
 			//refreshOpen(); // not needed here it happens when thumbnails are saved
 		}
 	}
-
-	for (let bookmark of data.bookmarks) {
-		await chrome.storage.local.remove(bookmark.url).catch((err) => {
-			console.log(err);
-		});
-	}
-	refreshBatch(data.bookmarks);
 }
 
-// 生成缩略图,假如存在screenshot就用screenshot,否则传消息给 offscreen 进行截图
+// 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
 async function getThumbnails(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
 	console.log("bg getThumbnails", url, id, groupId, options);
 
@@ -274,26 +277,37 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 	// if (tabs && tabs.length && tabs[0].url === url) {
 	// 	screenshot = await chrome.tabs.captureVisibleTab()
 	// }
-	screenshot = await fetchScreenshot(url).catch(err => {
-		console.log(err);
+	await fetchScreenshot(url).then(screenshot => {
+		console.log("bg screenshot length:", screenshot ? screenshot.length : 0);
+
+		// cant parse images from dom in service worker: delegate to offscreen document
+		setupOffscreenDocument('offscreen.html');
+
+		chrome.runtime.sendMessage({
+			target: 'offscreen',
+			data: {
+				url,
+				id,
+				groupId: groupId,
+				screenshot: screenshot,
+				quickRefresh: options.quickRefresh,
+				forcePageReload: options.forcePageReload,
+			}
+		});
+	}).catch(err => {
+		console.log("getThumbnails err:", err);
+		chrome.runtime.sendMessage({
+			target: 'newtab',
+			type: 'GetThumbErr',
+			data: [{
+				id,
+				groupId: groupId,
+				url,
+				err: err.message
+			}]
+		});
+		// todo：告知用户
 	})
-
-	console.log("bg screenshot length:", screenshot ? screenshot.length : 0);
-
-	// cant parse images from dom in service worker: delegate to offscreen document
-	await setupOffscreenDocument('offscreen.html');
-
-	chrome.runtime.sendMessage({
-		target: 'offscreen',
-		data: {
-			url,
-			id,
-			groupId: groupId,
-			screenshot: screenshot,
-			quickRefresh: options.quickRefresh,
-			forcePageReload: options.forcePageReload,
-		}
-	});
 }
 
 // 处理由 Offscreen document 发送回来的缩略图数据
@@ -466,50 +480,159 @@ async function setupOffscreenDocument(path) {
 
 // 如果目标页面就是当前 tab，直接用 chrome.tabs.captureVisibleTab 截图。
 // 否则：新开一个后台 tab，等页面加载完成后截图，再关闭。
+// 不能使用 popup，因为 popup 有可能由于浏览器策略被延迟/挂起，而不能准时激活 onUpdated 方法
 async function fetchScreenshot(url) {
     return new Promise((resolve, reject) => {
         try {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                let activeTab = tabs.find(t => t.url && t.url.startsWith(url));
-
-                if (activeTab) {
-                    // 当前 tab 是目标 URL
-                    chrome.tabs.update(activeTab.id, { active: true }, () => {
-                        chrome.tabs.captureVisibleTab(activeTab.windowId, { format: 'png' }, (dataUrl) => {
-                            if (chrome.runtime.lastError || !dataUrl) {
-                                reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
-                            } else {
-                                resolve(dataUrl);
-                            }
-                        });
-                    });
-                } else {
-                    // 新建激活 tab
-                    chrome.tabs.create({ url, active: true }, (tab) => {
-                        const tabId = tab.id;
-                        const windowId = tab.windowId;
-
-                        function onUpdated(updatedTabId, changeInfo) {
-                            if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                                chrome.tabs.onUpdated.removeListener(onUpdated);
-
-                                chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
-                                    if (chrome.runtime.lastError || !dataUrl) {
-                                        reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
-                                    } else {
-                                        resolve(dataUrl);
-                                    }
-                                    chrome.tabs.remove(tabId);
-                                });
-                            }
-                        }
-
-                        chrome.tabs.onUpdated.addListener(onUpdated);
-                    });
+            // 先查询当前窗口和当前活跃标签，以便稍后恢复
+            chrome.windows.getCurrent({ populate: true }, (currentWindow) => {
+                if (chrome.runtime.lastError) {
+                    return reject(chrome.runtime.lastError || new Error("Failed to get current window"));
                 }
+
+                const windowId = currentWindow.id;
+                const previousActiveTab = currentWindow.tabs.find(tab => tab.active);
+
+                // 在当前窗口创建一个后台标签（active: false）
+                chrome.tabs.create({ url: url, active: false, windowId: windowId }, (newTab) => {
+                    if (chrome.runtime.lastError) {
+                        return reject(chrome.runtime.lastError || new Error("Failed to create tab"));
+                    }
+
+                    const tabId = newTab.id;
+
+                    let timeoutId = setTimeout(() => {
+                        chrome.tabs.onUpdated.removeListener(onUpdated);
+                        chrome.tabs.remove(tabId);
+                        reject(new Error("Timeout: Page took too long to load"));
+                    }, 10000); // 10 秒超时
+
+                    function onUpdated(updatedTabId, changeInfo) {
+                        if (updatedTabId === tabId && changeInfo.status === 'complete') {
+                            clearTimeout(timeoutId);
+                            chrome.tabs.onUpdated.removeListener(onUpdated);
+
+                            // 检查是否被阻塞
+                            chrome.tabs.get(tabId, (tab) => {
+                                if (chrome.runtime.lastError) {
+                                    chrome.tabs.remove(tabId);
+                                    return reject(chrome.runtime.lastError);
+                                }
+
+                                const finalUrl = tab.url;
+                                if (finalUrl.startsWith('extension://') || finalUrl.includes('document-blocked.html')) {
+                                    chrome.tabs.remove(tabId);
+                                    return reject(new Error("Page blocked by extension (e.g., ad blocker)"));
+                                }
+
+                                // 临时激活该标签以确保可见并捕获截图
+                                chrome.tabs.update(tabId, { active: true }, () => {
+                                    if (chrome.runtime.lastError) {
+                                        chrome.tabs.remove(tabId);
+                                        return reject(chrome.runtime.lastError);
+                                    }
+
+                                    // 捕获截图
+                                    chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+                                        const captureError = chrome.runtime.lastError;
+
+                                        // 无论成功与否，都关闭新标签并恢复原活跃标签
+                                        chrome.tabs.remove(tabId, () => {
+                                            if (previousActiveTab) {
+                                                chrome.tabs.update(previousActiveTab.id, { active: true });
+                                            }
+                                        });
+
+                                        if (captureError || !dataUrl) {
+                                            reject(captureError || new Error("captureVisibleTab failed"));
+                                        } else {
+                                            resolve(dataUrl);
+                                        }
+                                    });
+                                });
+                            });
+                        }
+                    }
+
+                    chrome.tabs.onUpdated.addListener(onUpdated);
+                });
             });
         } catch (err) {
             reject(err);
         }
     });
 }
+
+// async function fetchScreenshot(url, timeoutMs = fetchScreenshotTimeout, checkInterval = 200) {
+// 	return new Promise((resolve, reject) => {
+// 		try {
+// 			chrome.tabs.create({ url, active: false }, (tab) => {
+// 				const tabId = tab.id;
+// 				const windowId = tab.windowId;
+// 				let timeoutId, checkId;
+// 				let lastUrl = url;
+
+// 				function cleanup() {
+// 					chrome.tabs.onUpdated.removeListener(onUpdated);
+// 					clearTimeout(timeoutId);
+// 					clearInterval(checkId);
+// 				}
+
+// 				function captureTab() {
+// 					// 激活 tab 并聚焦窗口截图
+// 					chrome.windows.update(windowId, { focused: true }, () => {
+// 						chrome.tabs.update(tabId, { active: true }, () => {
+// 							chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+// 								cleanup();
+// 								chrome.tabs.remove(tabId);
+// 								if (chrome.runtime.lastError || !dataUrl) {
+// 									reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
+// 								} else {
+// 									resolve(dataUrl);
+// 								}
+// 							});
+// 						});
+// 					});
+// 				}
+
+// 				function onUpdated(updatedTabId, changeInfo, updatedTab) {
+// 					if (updatedTabId !== tabId) return;
+
+// 					// 检测被 uBlock 或其他扩展拦截
+// 					if (updatedTab.url.startsWith("extension://")) {
+// 						cleanup();
+// 						chrome.tabs.remove(tabId);
+// 						reject(new Error(`Page was blocked by another extension: ${updatedTab.url}`));
+// 						return;
+// 					}
+
+// 					// 页面加载完成
+// 					if (changeInfo.status === 'complete') {
+// 						captureTab();
+// 					}
+// 				}
+
+// 				chrome.tabs.onUpdated.addListener(onUpdated);
+
+// 				// 超时兜底
+// 				timeoutId = setTimeout(() => {
+// 					cleanup();
+// 					chrome.tabs.remove(tabId);
+// 					reject(new Error(`Timeout: page did not load within ${timeoutMs}ms`));
+// 				}, timeoutMs);
+
+// 				// URL 稳定性检查（处理 JS / meta refresh 跳转）
+// 				checkId = setInterval(() => {
+// 					chrome.tabs.get(tabId, (t) => {
+// 						if (!t) return; // tab 已关闭
+// 						if (t.url !== lastUrl) {
+// 							lastUrl = t.url;
+// 						}
+// 					});
+// 				}, checkInterval);
+// 			});
+// 		} catch (err) {
+// 			reject(err);
+// 		}
+// 	});
+// }

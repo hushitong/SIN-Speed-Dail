@@ -152,7 +152,8 @@ export function initEvents() {
                     case 'refresh':
                         refreshThumbnails(state.targetTileHref, state.targetTileId);
                         break;
-                    case 'refreshAll':
+                    case 'refreshAllThumbnails':
+                        console.log("events refreshAll");
                         modalShowEffect(DOM.refreshAllModalContent, DOM.refreshAllModal);
                         break;
                     case 'delete':
@@ -604,6 +605,12 @@ function handleMessages(message) {
         // }]
         setBackgroundImages(message.data);
         hideToast();
+    } else if (message.type === 'GetThumbErr') {
+        // error getting thumbnail for url
+        // data is an array of objects containing id, groupId, url and err
+        console.log("Error getting thumbnail for url:", message.data);
+        hideToast();
+        showToast("Error getting thumbnail for url: " + message.data[0].url + " : " + message.data[0].err, 5000);
     }
 }
 

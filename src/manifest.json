@@ -19,8 +19,7 @@
     "offscreen",
     "storage",
     "tabs",
-    "unlimitedStorage",
-    "activeTab"
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"

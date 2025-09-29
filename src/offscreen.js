@@ -35,26 +35,24 @@ async function handleMessages(message) {
 
     let url = message.data.url;
 
-    let images = await fetchImages(url, quickRefresh).catch(err => {
-        console.log(err);
-    })
+    // 根据地址，获取网站的代表性图片，如 favicon、logo、主图、Open Graph 图标、CSS 里引用的 logo 等
+    // let images = await fetchImages(url, quickRefresh).catch(err => {
+    //     console.log(err);
+    // })
+    // if (images && images.length) {
+    //     resizedImages = await Promise.all(images.map(async (image) => {
+    //         const result = await resizeImage(image).catch(err => {
+    //             console.log(err);
+    //         });
+    //         return result
+    //     }))
+    // }
 
-    if (images && images.length) {
-        resizedImages = await Promise.all(images.map(async (image) => {
-            const result = await resizeImage(image).catch(err => {
-                console.log(err);
-            });
-            return result
-        }))
-    }
-
+    // 如果有截图，则把截图也进行缩放处理
     if (screenshot) {
         // screenshot is handled separately to remove scrollbars
         let result =
-            await resizeImage(screenshot, true)
-                .catch(err => {
-                    console.log(err);
-                });
+            await resizeImage(screenshot, true).catch(err => { console.log(err); });
         if (result) {
             // 截图放在第一位
             resizedImages.unshift(result);
@@ -63,9 +61,10 @@ async function handleMessages(message) {
 
     // 只保留5张图
     if (resizedImages && resizedImages.length) {
-        thumbs = resizedImages.filter(item => item).slice(0,5)
+        thumbs = resizedImages.filter(item => item).slice(0, 5)
     }
 
+    // 根据第一张图（通常是网站截图），计算一个背景色
     if (thumbs.length) {
         bgColor = await getBgColor(thumbs[0])
     }
@@ -110,6 +109,7 @@ function colorsAreSimilar(color1, color2, tolerance = 2) {
         Math.abs(color1[3] - color2[3]) <= tolerance;
 }
 
+// 根据传入的图片 URL（或 base64）估算一个背景色，最终返回一个 linear-gradient(...) CSS 字符串
 function getBgColor(image) {
     // todo: ensure this is performant
     // todo: ensure our similar color counting is accurate, same as index
@@ -243,7 +243,7 @@ function getBgColor(image) {
     });
 }
 
-function resizeImage(image, screenshot = false) {
+function resizeImage(image, isScreenshot = false) {
     return new Promise((resolve, reject) => {
         if (!image || !image.length) {
             return resolve();
@@ -269,7 +269,7 @@ function resizeImage(image, screenshot = false) {
 
                 let nocrop = false;
 
-                if (screenshot) {
+                if (isScreenshot) {
                     sWidth -= 17;
                     sHeight -= 17;
                 }
