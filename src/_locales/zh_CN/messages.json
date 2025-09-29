@@ -130,6 +130,21 @@
   "refresh": {
     "message": "刷新缩略图"
   },
+  "refreshAllThumbnails": {
+    "message": "刷新当前分组所有缩略图..."
+  },
+  "refreshAllThumbnailsTitle": {
+    "message": "是否刷新当前分组所有缩略图？"
+  },
+  "refreshAllThumbnailsInfo1": {
+    "message": "这将为此分组上的所有书签获取新图像。可能需要一段时间（书签越多所需时间越多）！"
+  },
+  "refreshAllThumbnailsInfo2": {
+    "message": "注意：期间应用会打开当前分组所有网站进行屏幕截图的截取。"
+  },
+  "continue": {
+    "message": "继续"
+  },
   "remember": {
     "message": "记住上次分组"
   },

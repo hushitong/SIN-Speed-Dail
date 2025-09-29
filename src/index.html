@@ -76,7 +76,8 @@
             <li class="menu-option" data-locale="newgroup" id="newgroup">New group...</li>
             <li class="menu-separator"></li>
             <li class="menu-separator"></li>
-            <li class="menu-option" id="refreshAll">Refresh All Thumbnails...</li>
+            <li class="menu-option" id="refreshAllThumbnails" data-locale="refreshAllThumbnails">Refresh All
+                Thumbnails...</li>
             <li class="menu-option" data-locale="settings" id="openSettings">Settings...</li>
         </ul>
     </div>
@@ -235,13 +236,15 @@
         <div class="modal-content" id="refreshAllModalContent">
 
             <div class="formItem" style=" padding: 0 20px;">
-                <h3>Refresh All Thumbnails?</h3>
-                <p>This will fetch new images for all the dials on this page. It may take a while!<br /><br />Note: This
-                    process runs in the background. Screenshots are not taken in this mode.</p>
+                <h3 data-locale="refreshAllThumbnailsTitle">Refresh All Thumbnails?</h3>
+                <p data-locale="refreshAllThumbnailsInfo1">This will fetch new images for all the dials on this page. It
+                    may take a while!</p>
+                <p data-locale="refreshAllThumbnailsInfo2">Note: This process runs in the background. Screenshots are
+                    not taken in this mode.</p>
             </div>
 
             <div class="formItem">
-                <button class="save" id="refreshAllModalSave">Continue</button>
+                <button class="save" id="refreshAllModalSave" data-locale="continue">Continue</button>
             </div>
             <div class="formItem">
                 <button class="close" data-locale="cancel">Cancel</button>
@@ -295,7 +298,7 @@
                             <!-- 导出 "设置" 以及 "分组" 还有 "书签"，能够选择是否同时导出 "自定义背景图" 以及 "书签缩略图" <br /> -->
                             注意：勾选导出 "自定义背景图" 以及 "书签缩略图" 选项，会把图片以 webq 的格式插入生成的 JSON 文件中，这会导致文件变大许多
                         </label>
-                        <br/>
+                        <br />
                         <div class='row'>
                             <div class='column'>
                                 <label>包含自定义背景图</label>

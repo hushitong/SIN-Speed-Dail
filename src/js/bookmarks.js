@@ -346,27 +346,41 @@ export function refreshThumbnails(url, tileid) {
 }
 
 
-export function refreshAllThumbnails() {
+// 刷新分组上所有书签的缩略图
+export async function refreshAllThumbnails() {
     let bookmarks = [];
-    let parent = currentGroup ? currentGroup : selectedGroupId;
+    let bookmarkToProcess = [];
+    const groupId = state.currentGroupId;
 
     hideModals();
 
-    chrome.bookmarks.getChildren(parent).then(children => {
-        if (children && children.length) {
-            for (let child of children) {
-                if (child.url && (child.url.startsWith('https://') || child.url.startsWith('http://'))) {
-                    //urls.push(child.url);
-                    // push an object with the url and the id
-                    bookmarks.push({ url: child.url, id: child.id, parentId: child.parentId });
-                }
-            }
-            chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
-            showToast(' Capturing images...')
+    const data = await getData(['bookmarks']);
+    bookmarks = data.bookmarks.filter(b => b.groupId === groupId);
+
+    bookmarks.forEach(bookmark => {
+        if(bookmark.url && (bookmark.url.startsWith('https://') || bookmark.url.startsWith('http://'))) {
+            bookmarkToProcess.push(bookmark);
         }
-    }).catch(err => {
-        console.log(err);
     });
+    chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
+    showToast(' Capturing images...')
+    
+
+    // chrome.bookmarks.getChildren(groupId).then(children => {
+    //     if (children && children.length) {
+    //         for (let child of children) {
+    //             if (child.url && (child.url.startsWith('https://') || child.url.startsWith('http://'))) {
+    //                 //urls.push(child.url);
+    //                 // push an object with the url and the id
+    //                 bookmarks.push({ url: child.url, id: child.id, parentId: child.parentId });
+    //             }
+    //         }
+    //         chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
+    //         showToast(' Capturing images...')
+    //     }
+    // }).catch(err => {
+    //     console.log(err);
+    // });
 }
 
 ///////////////////////////////////////////////////////////////

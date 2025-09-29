@@ -44,7 +44,7 @@ async function handleMessages(message) {
 			handleManualRefresh(message.data);
 			break;
 		case 'refreshAllThumbs':
-			handleRefreshAll(message.data);
+			handleRefreshAllThumbs(message.data);
 			break;
 		case 'saveThumbnails':	// 在新增 bookmark 时，由 offscreen 发送回来的缩略图
 			handleOffscreenFetchDone(message.data, message.forcePageReload);
@@ -224,7 +224,16 @@ function handleManualRefresh(data) {
 	}
 }
 
-async function handleRefreshAll(data) {
+// 刷新当前分组所有书签的缩略图
+async function handleRefreshAllThumbs(data) {
+	// 移除所有书签对应的缩略图缓存
+	for (let bookmark of data.bookmarks) {
+		await chrome.storage.local.remove(defaultThumbPrefix + bookmark.id).catch((err) => {
+			console.log(err);
+		});
+	}
+	refreshBatch(data.bookmarks);
+
 	async function refreshBatch(bookmarks, index = 0, retries = 2) {
 		const batchSize = 200;
 		const delay = 10000;
@@ -232,7 +241,7 @@ async function handleRefreshAll(data) {
 
 		if (batch.length) {
 			try {
-				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.parentId, { quickRefresh: true })));
+				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false })));
 				// todo show progress in UI
 				// todo: we might need to refactor this to promises or timers so the worker doesnt kill the process with a batch scheduled
 				setTimeout(() => refreshBatch(bookmarks, index + batchSize, retries), delay);
@@ -250,16 +259,9 @@ async function handleRefreshAll(data) {
 			//refreshOpen(); // not needed here it happens when thumbnails are saved
 		}
 	}
-
-	for (let bookmark of data.bookmarks) {
-		await chrome.storage.local.remove(bookmark.url).catch((err) => {
-			console.log(err);
-		});
-	}
-	refreshBatch(data.bookmarks);
 }
 
-// 生成缩略图,假如存在screenshot就用screenshot,否则传消息给 offscreen 进行截图
+// 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
 async function getThumbnails(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
 	console.log("bg getThumbnails", url, id, groupId, options);
 
@@ -467,49 +469,49 @@ async function setupOffscreenDocument(path) {
 // 如果目标页面就是当前 tab，直接用 chrome.tabs.captureVisibleTab 截图。
 // 否则：新开一个后台 tab，等页面加载完成后截图，再关闭。
 async function fetchScreenshot(url) {
-    return new Promise((resolve, reject) => {
-        try {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                let activeTab = tabs.find(t => t.url && t.url.startsWith(url));
+	return new Promise((resolve, reject) => {
+		try {
+			chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+				let activeTab = tabs.find(t => t.url && t.url.startsWith(url));
 
-                if (activeTab) {
-                    // 当前 tab 是目标 URL
-                    chrome.tabs.update(activeTab.id, { active: true }, () => {
-                        chrome.tabs.captureVisibleTab(activeTab.windowId, { format: 'png' }, (dataUrl) => {
-                            if (chrome.runtime.lastError || !dataUrl) {
-                                reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
-                            } else {
-                                resolve(dataUrl);
-                            }
-                        });
-                    });
-                } else {
-                    // 新建激活 tab
-                    chrome.tabs.create({ url, active: true }, (tab) => {
-                        const tabId = tab.id;
-                        const windowId = tab.windowId;
+				if (activeTab) {
+					// 当前 tab 是目标 URL
+					chrome.tabs.update(activeTab.id, { active: true }, () => {
+						chrome.tabs.captureVisibleTab(activeTab.windowId, { format: 'png' }, (dataUrl) => {
+							if (chrome.runtime.lastError || !dataUrl) {
+								reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
+							} else {
+								resolve(dataUrl);
+							}
+						});
+					});
+				} else {
+					// 新建激活 tab
+					chrome.tabs.create({ url, active: true }, (tab) => {
+						const tabId = tab.id;
+						const windowId = tab.windowId;
 
-                        function onUpdated(updatedTabId, changeInfo) {
-                            if (updatedTabId === tabId && changeInfo.status === 'complete') {
-                                chrome.tabs.onUpdated.removeListener(onUpdated);
+						function onUpdated(updatedTabId, changeInfo) {
+							if (updatedTabId === tabId && changeInfo.status === 'complete') {
+								chrome.tabs.onUpdated.removeListener(onUpdated);
 
-                                chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
-                                    if (chrome.runtime.lastError || !dataUrl) {
-                                        reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
-                                    } else {
-                                        resolve(dataUrl);
-                                    }
-                                    chrome.tabs.remove(tabId);
-                                });
-                            }
-                        }
+								chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+									if (chrome.runtime.lastError || !dataUrl) {
+										reject(chrome.runtime.lastError || new Error("captureVisibleTab failed"));
+									} else {
+										resolve(dataUrl);
+									}
+									chrome.tabs.remove(tabId);
+								});
+							}
+						}
 
-                        chrome.tabs.onUpdated.addListener(onUpdated);
-                    });
-                }
-            });
-        } catch (err) {
-            reject(err);
-        }
-    });
+						chrome.tabs.onUpdated.addListener(onUpdated);
+					});
+				}
+			});
+		} catch (err) {
+			reject(err);
+		}
+	});
 }

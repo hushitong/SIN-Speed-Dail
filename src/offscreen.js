@@ -110,6 +110,7 @@ function colorsAreSimilar(color1, color2, tolerance = 2) {
         Math.abs(color1[3] - color2[3]) <= tolerance;
 }
 
+// 根据传入的图片 URL（或 base64）估算一个背景色，最终返回一个 linear-gradient(...) CSS 字符串
 function getBgColor(image) {
     // todo: ensure this is performant
     // todo: ensure our similar color counting is accurate, same as index

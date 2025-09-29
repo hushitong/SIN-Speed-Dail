@@ -152,7 +152,8 @@ export function initEvents() {
                     case 'refresh':
                         refreshThumbnails(state.targetTileHref, state.targetTileId);
                         break;
-                    case 'refreshAll':
+                    case 'refreshAllThumbnails':
+                        console.log("events refreshAll");
                         modalShowEffect(DOM.refreshAllModalContent, DOM.refreshAllModal);
                         break;
                     case 'delete':
