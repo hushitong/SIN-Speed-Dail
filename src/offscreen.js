@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener(handleMessages);
 // }
 
 // 获得background.js发送过来的消息，获取缩略图数据并再发送回background.js处理
-async function handleMessages(message) {
+async function handleMessages(message, sender, sendResponse) {
     if (message.target !== 'offscreen') {
         return;
     }
@@ -70,6 +70,10 @@ async function handleMessages(message) {
     }
 
     chrome.runtime.sendMessage({ target: 'background', type: 'saveThumbnails', data: { url, id, parentId: groupId, thumbs, bgColor }, forcePageReload });
+
+    // 异步处理完成后，调用 sendResponse 关闭通道（即使无数据返回）
+	console.log('Sending response');
+	sendResponse({ success: true });
 }
 
 function offscreenCanvasShim(w = 1, h = 1) {

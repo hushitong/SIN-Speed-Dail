@@ -487,16 +487,6 @@ export function initEvents() {
                 return;
             }
 
-            // quiet the listeners so yasd doesnt go crazy
-            chrome.runtime.sendMessage({ target: 'background', type: 'toggleBookmarkCreatedListener', data: { enable: false } });
-            //todo: proceed once we get a response
-            //todo: re-enable listener when import complete
-            //todo: add an option to fetch new thumbnails or use the included ones
-
-            // if (json.bookmarks && json.groups && json.settings) {
-
-            // }
-
             if (json.dials && json.groups) {
                 const data = importFromSD2(json);
                 if (data) {
