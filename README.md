@@ -2,9 +2,13 @@
 
 ## 介绍
 
-fork from [conceptualspace/yet-another-speed-dial](https://github.com/conceptualspace/yet-another-speed-dial)
+fork from [conceptualspace/yet-another-speed-dial](https://github.com/conceptualspace/yet-another-speed-dial)，基于版本 3.7.8。
 
-目前打算仿照 speed dail 2 这样管理书签，而不是直接管理浏览器书签
+由于项目改动很大，因此版本管理会独立管理。第一版可发布版本将会重新由1.0开始管理。
+
+主要改动就是仿照 speed dail 2 这样管理书签，而不是直接管理浏览器书签，并且添加自己想要的内容。
+
+目前仅为了自己使用而修改，接受bug处理，目前不接受功能请求。
 
 
 ## 插件介绍
