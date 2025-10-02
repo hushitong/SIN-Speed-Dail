@@ -1,4 +1,4 @@
-# Singo's Yet Another Speed Dial
+# SIN Speed Dial
 
 ## 介绍
 

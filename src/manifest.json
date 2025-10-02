@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Singo's Speed Dial",
-  "description": "Singo's Speed Dial, from Yet Another Speed Dial",
+  "name": "SIN Speed Dial",
+  "description": "An new tab page,fork from Yet Another Speed Dial",
   "default_locale": "zh_CN",
-  "version": "3.7.8",
-  "author": "dev@conceptualspace.net",
+  "version": "1",
+  "author": "hushitong@gmail.com",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -37,11 +37,11 @@
       "24": "icons/action-icon24.png",
       "32": "icons/action-icon32.png"
     },
-    "default_title": "Add Site to Yet Another Speed Dial"
+    "default_title": "Add Site to SIN Speed Dial"
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "yet_another_speed_dial@conceptualspace.net",
+      "id": "SIN-Speed-Dial@github.com",
       "strict_min_version": "59.0"
     }
   },

@@ -62,7 +62,7 @@
   },
   "extensionName": {
     "description": "title of the app, displayed in store",
-    "message": "yet another speed dial"
+    "message": "SUB speed dial"
   },
   "help": {
     "message": "Help"
@@ -80,7 +80,7 @@
     "message": "Import Settings..."
   },
   "importExport": {
-    "message": "This will backup or restore YASD settings and thumbnails.\n\nPlease make sure your browser bookmarks are backed up separately via the bookmarks manager or sync. Note that importing will replace your current settings!\n\nYASD can also try to import from Speed Dial 2 and FVD backup files (currently experimental)"
+    "message": "This will backup or restore SSD settings and thumbnails.\n\nPlease make sure your browser bookmarks are backed up separately via the bookmarks manager or sync. Note that importing will replace your current settings!\n\nSSD can also try to import from Speed Dial 2 and FVD backup files (currently experimental)"
   },
   "importExportLink": {
     "message": "Import and Export..."
@@ -107,7 +107,7 @@
     "message": "New group..."
   },
   "newInstall1": {
-    "message": "Get started with Yet Another Speed Dial!"
+    "message": "Get started with SIN Speed Dial!"
   },
   "newInstall2": {
     "message": "⭐ Just add bookmarks to the Speed Dial group and they will appear here"

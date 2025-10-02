@@ -1,7 +1,3 @@
-// yet another speed dial
-// copyright 2019 dev@conceptualspace.net
-// absolutely no warranty is expressed or implied
-
 'use strict';
 
 import { initEvents } from "./events.js"

@@ -62,7 +62,7 @@
   },
   "extensionName": {
     "description": "title of the app, displayed in store",
-    "message": "Yet Another Speed Dial"
+    "message": "SIN Speed Dial"
   },
   "help": {
     "message": "帮助"
@@ -80,7 +80,7 @@
     "message": "导入设置..."
   },
   "importExport": {
-    "message": "这将备份或恢复 YASD 设置和缩略图。\n\n请确保您的浏览器书签已通过书签管理器或同步功能单独备份。请注意，导入将替换您当前的设置！\n\nYASD 还可以尝试从 Speed Dial 2 和 FVD 备份文件导入（目前为实验功能）"
+    "message": "这将备份或恢复 SSD 设置和缩略图。\n\n请确保您的浏览器书签已通过书签管理器或同步功能单独备份。请注意，导入将替换您当前的设置！\n\nSSD 还可以尝试从 Speed Dial 2 和 FVD 备份文件导入（目前为实验功能）"
   },
   "importExportLink": {
     "message": "导入和导出..."
@@ -107,7 +107,7 @@
     "message": "新建分组..."
   },
   "newInstall1": {
-    "message": "开始使用 Yet Another Speed Dial！"
+    "message": "开始使用 SIN Speed Dial！"
   },
   "newInstall2": {
     "message": "⭐ 只需将书签添加到快速书签分组，它们就会出现在这里"

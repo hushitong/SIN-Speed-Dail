@@ -1,7 +1,3 @@
-// yet another speed dial
-// copyright 2019 dev@conceptualspace.net
-// absolutely no warranty is expressed or implied
-
 'use strict';
 
 const defaultThumbPrefix = 'thumb_'; // 缩略图在 storage 中的 key 前缀
@@ -365,11 +361,16 @@ async function handleInstalled(details) {
 		// chrome.runtime.setUninstallURL("https://forms.gle/6vJPx6eaMV5xuxQk9");
 		// todo: detect existing speed dial group
 	} else if (details.reason === 'update') {
-		if (details.previousVersion < '3.3') {
-			const url = chrome.runtime.getURL("updated.html");
-			chrome.tabs.create({ url });
-		}
-		// perform any migrations here...
+		const previousVersion = details.previousVersion; // 旧版本
+		const currentVersion = chrome.runtime.getManifest().version; // 新版本
+
+		console.log("SIN Speed Dail，升级：", previousVersion, "→", currentVersion);
+
+		// 保留处理，以防未来需要
+		// if (isVersionLessThan(previousVersion, "1.0.0")) {
+		// 	// 某些版本升级后，需要做一些特殊处理，比如数据迁移、数据清理、数据初始化等
+		// 	// await migrateOldData();
+		// }
 	}
 
 	try {
@@ -388,6 +389,19 @@ async function handleInstalled(details) {
 	} catch (error) {
 		console.log("Error managing context menus:", error.message);
 	}
+}
+// 版本比较函数，判断 v1 是否小于 v2
+function isVersionLessThan(v1, v2) {
+	const a = v1.split('.').map(Number);
+	const b = v2.split('.').map(Number);
+
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const n1 = a[i] || 0;
+		const n2 = b[i] || 0;
+		if (n1 < n2) return true;
+		if (n1 > n2) return false;
+	}
+	return false;
 }
 
 // offscreen document setup
