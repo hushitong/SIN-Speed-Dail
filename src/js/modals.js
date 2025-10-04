@@ -14,7 +14,7 @@ import { hideSettings } from "./ui.js";
 // 显示添加书签模态框
 export function buildCreateBookmarkModal(parentGroupId) {
     DOM.createDialModalURL.value = '';
-    DOM.createDialModalURL.parentId = parentGroupId ? parentGroupId : state.selectedGroupId;
+    DOM.createDialModalURL.parentId = parentGroupId ? parentGroupId : state.currentGroupId;
     DOM.createDialModalURL.focus();
 }
 

@@ -1,8 +1,8 @@
 import { state } from "./state.js";
 import { animate } from "./ui.js";
+import { getData, saveData } from "./data.js";
 
 let translations = {}; // 缓存翻译
-
 export async function apply_i18n(locale) {
     translations = await loadTranslations(locale);
     document.querySelectorAll("[data-locale]").forEach(elem => {
@@ -36,10 +36,21 @@ export function parseJson(event) {
     return JSON.parse(event.target.result);
 }
 
-
 // 生成唯一ID
 export function generateId() {
     return crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+}
+
+// 访问某个书签，更新其访问次数
+export function visitAddOne(id) {
+    getData(['bookmarks']).then(data => {
+        let bookmarks = data.bookmarks || [];
+        let bookmark = bookmarks.find(b => b.id === id);
+        if (bookmark) {
+            bookmark.visits = (bookmark.visits || 0) + 1;
+            saveData({ bookmarks });
+        }
+    });
 }
 
 // 根据屏幕高度调整背景图片大小，并返回处理后的图片 DataURI。

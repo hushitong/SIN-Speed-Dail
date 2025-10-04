@@ -38,6 +38,9 @@
   "defaultSort": {
     "message": "默认排序"
   },
+  "addBookmarkButtonPosition": {
+    "message": "新建书签按钮位置"
+  },
   "delete": {
     "message": "删除"
   },
@@ -192,5 +195,50 @@
   },
   "exportName": {
     "message": "导出"
+  },
+  "initSettingBtn": {
+    "message": "初始化设置"
+  },
+  "dialRatioSquare": {
+    "message": "正方形"
+  },
+  "dialRatioWide": {
+    "message": "长方形"
+  },
+  "bookmarkSizeExtraSmall": {
+    "message": "超小"
+  },
+  "bookmarkSizeSmall": {
+    "message": "小"
+  },
+  "bookmarkSizeMedium": {
+    "message": "中"
+  },
+  "bookmarkSizeLarge": {
+    "message": "大"
+  },
+  "maxcolsUnlimited": {
+    "message": "无限制"
+  },
+  "defaultSortCustom": {
+    "message": "用户自定义"
+  },
+  "defaultSortVisits": {
+    "message": "访问量越多越前"
+  },
+  "defaultSortDateAsc": {
+    "message": "添加时间越早越前"
+  },
+  "defaultSortDateDesc": {
+    "message": "添加时间越晚越前"
+  },
+  "addBookmarkBtnPositionFirst": {
+    "message": "最前"
+  },
+  "addBookmarkBtnPositionLast": {
+    "message": "最后"
+  },
+  "addBookmarkBtnPositionHidden": {
+    "message": "隐藏"
   }
 }

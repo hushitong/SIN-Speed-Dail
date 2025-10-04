@@ -15,11 +15,11 @@ import {
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
-    saveBookmark,
+    saveBookmark, buildBookmarksByGroupId,
     createBookmark, removeBookmark, moveBookmark,
     setBackgroundImages, refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
-import { createGroup, editGroup, removeGroup, moveGroup, showGroup } from "./groups.js";
+import { createGroup, editGroup, removeGroup, moveGroup, activeGroup } from "./groups.js";
 import { state } from "./state.js"
 
 let targetGroupName = null;
@@ -82,9 +82,9 @@ export function initEvents() {
 
     // listen for menu item
     window.addEventListener("mousedown", e => {
-        console.log(e.target);
+        console.log("mousedown event target", e.target);
         hideMenus();
-        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'bookmarkSize' || e.target.id === 'dialRatio') {
+        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'addBookmarkBtnPosition' || e.target.id === 'bookmarkSize' || e.target.id === 'dialRatio') {
             return
         }
         if (e.target.className.baseVal === 'gear') {
@@ -104,7 +104,7 @@ export function initEvents() {
             return;
         }
 
-        console.log("classname:" + e.target.className);
+        console.log("select classname:" + e.target.className);
         switch (e.target.className) {
             // todo: invert this
             case 'default-content':
@@ -171,7 +171,6 @@ export function initEvents() {
                         DOM.deletegroupModalName.textContent = targetGroupName;
                         modalShowEffect(DOM.deletegroupModalContent, DOM.deleteGroupModal);
                         break;
-
                 }
                 break;
             default:
@@ -258,6 +257,14 @@ export function initEvents() {
             processRefresh();
             saveSettings(state.settings);
             // applySettings(state.settings);
+        }
+    }
+
+    // 新增书签按钮位置
+    DOM.addBookmarkBtnPositionSelect.oninput = function (e) {
+        if (state.settings.addBookmarkBtnPosition !== DOM.addBookmarkBtnPositionSelect.value) {
+            saveSettings(state.settings);
+            buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === state.currentGroupId), state.currentGroupId);
         }
     }
 
@@ -437,6 +444,23 @@ export function initEvents() {
     document.getElementById('closeSettingsBtn').addEventListener('click', () => {
         hideSettings();
     });
+
+    DOM.initSettingBtn.onclick = function () {
+        // 弹出确认框，提示用户操作后果
+        const isConfirm = confirm('确定要清除所有设置吗？此操作将所有用户设置，且不可恢复。');
+
+        // 只有用户点击“确定”（isConfirm 为 true）时才执行
+        if (isConfirm) {
+            hideSettings();
+            state.settings = state.defaults;
+            state.wallpaperSrc = state.defaultWallpaperSrc;
+            saveSettings(state.settings, state.wallpaperSrc, false).then(() => {
+                initSettings(state.settings, state.wallpaperSrc);
+                buildGroupsAndBookmarksPages(state.currentGroupId);
+                showToast("已恢复初始设置", 3000);
+            });
+        }
+    }
 
     // 点击 导入/导出 按钮
     DOM.importExportBtn.onclick = function () {
@@ -621,44 +645,57 @@ function onResize() {
 // evt.clone - 拖拽的克隆元素
 // evt.from - 原始容器
 // evt.to - 目标容器
-export function onEndHandler(evt) {
+export function onGroupMoveEndHandler(evt) {
+    console.log("onEndHandler", evt, "evt.clone.href:", evt.clone.href);
+    // 拖拽书签
     if (evt && evt.clone.href) {
         let id = evt.clone.dataset.id;  // 书签ID
         let fromGroupId = dewrap(evt.from.id);  // 原始分组ID
-        let toGroupId = dewrap(evt.to.id);  // 目标分组ID
+        let toGroupId = state.targetGroupId;  // 目标分组ID
         let newSiblingId = evt.item.nextElementSibling ? evt.item.nextElementSibling.dataset.id : null; // 新邻居ID
         let newSiblingGroupId = newSiblingId ? dewrap(evt.item.nextElementSibling.parentElement.id) : null; // 新邻居的GroupId
+        let oriTargetId = evt.originalEvent.target.id;
         let oldIndex = evt.oldIndex;    // 原始位置
         let newIndex = evt.newIndex;    // 新位置
 
-        // 处理跨分组拖拽但目标不匹配的情况
-        if (fromGroupId !== toGroupId && toGroupId !== evt.originalEvent.target.id) {
-            // sortable's position doesn't match the dom's drop target
-            // this may happen if the tile is dragged over a sortable list but then ultimately dropped somewhere else
-            // for example directly on the group name, or directly onto the new dial button. so use the currentgroup as the target
-            toGroupId = state.currentGroupId ? state.currentGroupId : state.selectedGroupId;
-        }
+        console.log(`onEndHandler: id=${id}, fromGroupId=${fromGroupId}, toGroupId=${toGroupId}, oldIndex=${oldIndex}, newIndex=${newIndex}, newSiblingId=${newSiblingId}, newSiblingGroupId=${newSiblingGroupId}, oriTargetId=${oriTargetId}, state.currentGroupId=${state.currentGroupId}`);
 
-        // 处理同一分组内但目标不是当前分组的情况
-        if (fromGroupId === toGroupId && fromGroupId !== state.currentGroupId) {
-            // occurs when there is no sortable target -- for example dropping the dial onto the group name
-            // or some space of the page outside the sortable container element
-            toGroupId = state.currentGroupId ? state.currentGroupId : state.selectedGroupId;
-        }
+        // // 处理跨分组拖拽但目标不匹配的情况
+        // if (fromGroupId !== toGroupId && toGroupId !== evt.originalEvent.target.id) {
+        //     // sortable's position doesn't match the dom's drop target
+        //     // this may happen if the tile is dragged over a sortable list but then ultimately dropped somewhere else
+        //     // for example directly on the group name, or directly onto the new dial button. so use the currentgroup as the target
+        //     toGroupId = state.currentGroupId ? state.currentGroupId : state.targetGroupId;
+        // }
 
-        // 处理邻居分组不匹配的情况
-        // if the sibling's parent doesnt match the parent we are moving to discard this sibling
-        // can occur when dropping onto a non sortable target (like group name)
-        if (newSiblingGroupId && newSiblingGroupId !== toGroupId) {
-            newSiblingId = -1;
-        }
+        // // 处理同一分组内但目标不是当前分组的情况
+        // if (fromGroupId === toGroupId && fromGroupId !== state.currentGroupId) {
+        //     // occurs when there is no sortable target -- for example dropping the dial onto the group name
+        //     // or some space of the page outside the sortable container element
+        //     toGroupId = state.currentGroupId ? state.currentGroupId : state.targetGroupId;
+        // }
 
-        if ((fromGroupId && toGroupId && fromGroupId !== toGroupId) || oldIndex !== newIndex) {
-            moveBookmark(id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId)
+        // // 处理邻居分组不匹配的情况
+        // // if the sibling's parent doesnt match the parent we are moving to discard this sibling
+        // // can occur when dropping onto a non sortable target (like group name)
+        // if (newSiblingGroupId && newSiblingGroupId !== toGroupId) {
+        //     newSiblingId = -1;
+        // }
+
+        // 移动书签到其他分组
+        if (fromGroupId && toGroupId && fromGroupId !== toGroupId) {
+            moveBookmark("changeGroup", id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId)
         }
-    } else if (evt && evt.clone.classList.contains('groupTitle')) {
+        // 同一分组内调整书签顺序
+        if (!toGroupId && oldIndex !== newIndex) {
+            moveBookmark("changeIndex", id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId)
+        }
+    }
+    // 拖拽分组
+    else if (evt && evt.clone.classList.contains('groupTitle')) {
         let oldIndex = evt.oldIndex;
         let newIndex = evt.newIndex;
+        // console.log(`onEndHandler: id=${id}, oldIndex=${oldIndex}, newIndex=${newIndex}`);
 
         if (newIndex !== oldIndex) {
             if (evt.clone.attributes.groupid) {
@@ -672,14 +709,15 @@ export function onEndHandler(evt) {
 
 // 拖拽事件处理函数：当可拖拽元素进入目标时触发
 export function dragenterHandler(ev) {
+    console.log("dragenterHandler", ev.target);
     // temporary fix for firefox < v92
     // firefox returns a text node instead of an element
     if (ev.target.nodeType === 3) {
         if (ev.target.parentElement.classList.contains("groupTitle")) {
             // avoid repaints
             if (state.currentGroupId !== ev.target.parentElement.attributes.groupid.value) {
-                state.currentGroupId = ev.target.parentElement.attributes.groupid.value;
-                showGroup(state.currentGroupId)
+                state.targetGroupId = ev.target.parentElement.attributes.groupid.value;
+                // activeGroup(state.currentGroupId)
             }
         }
     }
@@ -689,26 +727,45 @@ export function dragenterHandler(ev) {
         if (state.currentGroupId !== ev.target.attributes.groupid.value) {
             ev.target.style.padding = "20px";
             ev.target.style.outline = "2px dashed white";
-            state.currentGroupId = ev.target.attributes.groupid.value;
-            showGroup(state.currentGroupId)
+            state.targetGroupId = ev.target.attributes.groupid.value;
+            // activeGroup(state.currentGroupId)
         }
+    }
+}
+
+// 拖拽事件处理函数：当可拖拽元素在目标容器内移动时持续触发
+export function dragoverHandler(ev) {
+    ev.preventDefault();
+    console.log("dragoverHandler", ev);
+}
+
+// 拖拽事件处理函数：当可拖拽元素被放置到目标时触发
+export function dropHandler(ev) {
+    console.log("dropHandler", ev);
+    if (ev.target.nodeType === 3) {
+        return
+    }
+    else if (ev.target.classList.contains("groupTitle")) {
+        ev.target.removeAttribute("style");
     }
 }
 
 // 拖拽事件处理函数：当可拖拽元素离开目标时触发
 export function dragleaveHandler(ev) {
+    console.log("dragleaveHandler", ev);
+    state.targetGroupId = state.currentGroupId;
     // temporary fix for firefox < v92
     if (ev.target.nodeType === 3) {
         return
     }
     else if (ev.target.classList.contains("groupTitle")) {
-        ev.target.style.padding = "0";
-        ev.target.style.outline = "none";
+        ev.target.removeAttribute("style");
     }
 }
 
-// Sortable helper fns
+// 书签排序移动时触发
 export function onMoveHandler(evt) {
+    console.log("onMoveHandler", evt);
     if (evt.related) {
         if (evt.to.children.length > 1) {
             // when no bookmarks are present we keep the createdial enabled so we have a drop target for dials dragged into group
@@ -725,7 +782,7 @@ function dewrap(str) {
     // unlike group tabs, main dial container doesnt include the group id
     // todo: cleanup
     if (str === "wrap") {
-        return state.selectedGroupId
+        return state.targetGroupId
     } else {
         return str
     }

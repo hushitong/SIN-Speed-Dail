@@ -1,10 +1,10 @@
 import { state } from "./state.js"
 import { DOM } from "./dom.js"
 import { getData, saveData } from "./data.js"
-import { generateId, hexToCssGradient, rgbaToCssGradient, rgbToHex, getBgColor } from "./utils.js";
+import { visitAddOne, generateId, hexToCssGradient, rgbaToCssGradient, rgbToHex, getBgColor } from "./utils.js";
 import { hideModals, buildCreateBookmarkModal, modalShowEffect } from "./modals.js";
 import { showToast, animate, hideSettings } from "./ui.js";
-import { onMoveHandler, onEndHandler } from "./events.js";
+import { onMoveHandler, onGroupMoveEndHandler } from "./events.js";
 
 function rectifyUrl(url) {
     if (url && !url.startsWith('https://') && !url.startsWith('http://')) {
@@ -58,18 +58,6 @@ export async function saveNewBookmark(groupId, url, title) {
     return newId;
 }
 
-// function getBookmarks(groupId) {
-//     chrome.bookmarks.getChildren(groupId).then(result => {
-//         if (groupId === selectedGroupId && !result.length && settings.showAddGroupsBtn) {
-//             //noBookmarks.style.display = 'block';
-//             addGroupButton.style.display = 'none';
-//         }
-//         printBookmarksByGroupId(result, groupId)
-//     }, error => {
-//         console.log(error);
-//     });
-// }
-
 // 实际作用就是根据 groupId 和 bookmarks 数组，生成指定分组的书签列表的 DOM 节点并插入到页面中
 // selectedGroupId 是要显示的分组，bookmarks 是该分组的书签数组
 export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
@@ -84,8 +72,21 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
 
     // 当该分组具有书签时，生成书签 DOM 节点
     if (bookmarks) {
-        if (state.settings.defaultSort === "first") {
-            bookmarks = bookmarks.reverse();
+        switch (state.settings.defaultSort) {
+            case "custom":
+                bookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
+                break;
+            case "visits":
+                bookmarks.sort((a, b) => (b.visits || 0) - (a.visits || 0));
+                break;
+            case "date_ase":
+                bookmarks.sort((a, b) => (a.createtime || 0) - (b.createtime || 0));
+                break;
+            case "date_desc":
+                bookmarks.sort((a, b) => (b.createtime || 0) - (a.createtime || 0));
+                break;
+            default:
+                bookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
         }
 
         let thumbIds = bookmarks.map(b => state.defaultThumbPrefix + b.id);
@@ -105,6 +106,9 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
                 a.classList.add('tile');
                 a.href = bookmark.url;
                 a.setAttribute('data-id', bookmark.id);
+                a.onclick = (e) => {
+                    visitAddOne(bookmark.id);
+                };
 
                 let tileMain = document.createElement('div');
                 tileMain.classList.add('tile-main');
@@ -124,7 +128,21 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
                 }
                 title.textContent = bookmark.title;
 
-                tileMain.append(content, title);
+                // 显示访问次数
+                let visitDiv = document.createElement('div');
+                visitDiv.classList.add('tile-visit');
+                visitDiv.textContent = (bookmark.visits || 0).toString();
+                visitDiv.title = `访问次数：${(bookmark.visits || 0).toString()}次`;
+                visitDiv.style.display = 'flex';
+
+                // 显示书签位置，仅用于调试
+                let positionDiv = document.createElement('div');
+                positionDiv.classList.add('tile-position');
+                positionDiv.textContent = (bookmark.position || 0).toString();
+                positionDiv.title = `排序序号：${(bookmark.position || 0).toString()}次`;
+                positionDiv.style.display = 'flex';
+
+                tileMain.append(content, title, visitDiv, positionDiv);
                 a.appendChild(tileMain);
 
                 // 最终 a 生成的数据 example:
@@ -143,14 +161,18 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
     }
 
     // 添加“新建书签”按钮
-    let newBookmarkButton = createNewBookmarkBtnDOM(selectedGroupId);
-    if (state.settings.defaultSort !== "first") {
-        fragment.appendChild(newBookmarkButton);
-    } else {
-        fragment.insertBefore(newBookmarkButton, fragment.firstChild);
+    if (state.settings.addBookmarkBtnPosition !== "hidden") {
+        let newBookmarkButton = createNewBookmarkBtnDOM(selectedGroupId);
+        // 根据不同排序方式，决定新建按钮的位置
+        if (state.settings.addBookmarkBtnPosition === "last") {
+            fragment.appendChild(newBookmarkButton);
+        } else if (state.settings.addBookmarkBtnPosition === "first") {
+            fragment.insertBefore(newBookmarkButton, fragment.firstChild);
+        }
     }
 
     // 假如原分组容器不存在，构建指定分组容器，用于放置书签
+    // 存在则清空原有内容
     let groupContainerEl = document.getElementById(selectedGroupId);
     if (!groupContainerEl) {
         groupContainerEl = document.createElement('div');
@@ -173,17 +195,20 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
         groupContainerEl.innerHTML = '';
     }
 
-    // Sortable configuration
+    // 基于 Sortable 库，初始化书签列表的拖拽排序功能
     new Sortable(groupContainerEl, {
         group: 'shared',
-        animation: 160,
-        ghostClass: 'selected',
-        dragClass: 'dragging',
+        // swapThreshold: 0.1,
+        animation: 20,
+        // easing: "cubic-bezier(1, 0, 0, 1)",
+        ghostClass: 'selected',   // 放置占位符的class名（拖拽时显示的占位元素）
+        dragClass: 'dragging',  // 正在拖拽项目的class名（拖拽过程中的元素）
         filter: ".createDial",
-        delay: 500,
-        delayOnTouchOnly: true,
         onMove: onMoveHandler,
-        onEnd: onEndHandler
+        onEnd: onGroupMoveEndHandler,
+        onStart: function (evt) {
+            state.targetGroupId = null;
+        }
     });
 
     batchInsert(groupContainerEl, fragment, 50)
@@ -215,6 +240,7 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
 function createNewBookmarkBtnDOM(groupId) {
     let anewBookmark = document.createElement('a');
     anewBookmark.classList.add('tile', 'createDial');
+    anewBookmark.title = `点击添加新书签`;
     anewBookmark.onclick = () => {
         hideSettings();
         buildCreateBookmarkModal(groupId);
@@ -240,62 +266,105 @@ function createNewBookmarkBtnDOM(groupId) {
 }
 
 // 移动书签顺序
-export function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSiblingId) {
-    let options = {}
+export async function moveBookmark(type, id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId) {
+    console.log("moveBookmark", type, id, fromGroupId, toGroupId, oldIndex, newIndex, newSiblingId);
 
-    function move(id, options) {
-        chrome.bookmarks.move(id, options).then(result => {
-            // tabMessagePort.postMessage({ refreshInactive: true });
-        }).catch(err => {
-            console.log(err);
-        });
-    }
+    if (type === "changeGroup") {
+        if (toGroupId != null) {
+            await getData(['bookmarks']).then(async data => {
+                const bookmarks = data.bookmarks;
 
-    if ((toParentId && fromParentId) && toParentId !== fromParentId) {
-        options.parentId = toParentId;
-    }
+                const newGroupBookmarks = bookmarks.filter(b => b.groupId === toGroupId);
+                const maxPosition = newGroupBookmarks.length > 0
+                    ? Math.max(...newGroupBookmarks.map(b => b.position || 0))
+                    : 0;
+                let newPosition = maxPosition + 1;
 
-    // todo: refactor
-    if (state.settings.defaultSort === "first") {
-        if (newSiblingId && newSiblingId !== -1) {
-            chrome.bookmarks.get(newSiblingId).then(result => {
-                if (toParentId === fromParentId && oldIndex >= newIndex) {
-                    options.index = Math.max(0, result[0].index);
-                    // chrome-only off by 1 bug when moving a bookmark forward
-                    if (!chrome.runtime.getBrowserInfo) {
-                        options.index++;
-                    }
-                } else {
-                    options.index = Math.max(0, result[0].index + 1);
-                }
-                move(id, options);
-            }).catch(err => {
-                console.log(err);
-            })
+                let bookmark = bookmarks.find(b => b.id === id);
+                bookmark.groupId = toGroupId;
+                const orgPosition = bookmark.position || 0;
+                bookmark.position = newPosition;
+
+                const orgGroupBookmarksShouldChangePosition = bookmarks.filter(b => b.groupId === fromGroupId && b.position > orgPosition);
+                orgGroupBookmarksShouldChangePosition.forEach(b => {
+                    if (b.position) b.position--;
+                });
+
+                await saveData({ bookmarks }).then(() => {
+                    const bookmarksContainer = document.getElementById(fromGroupId);
+                    Array.from(bookmarksContainer.children).forEach(child => {
+                        if (child.getAttribute('data-id') === id)
+                            bookmarksContainer.removeChild(child);
+                    });
+                });
+            });
         } else {
-            if (!newSiblingId) {
-                options.index = 0;
-            }
-            move(id, options);
+            console.log("moveBookmark aborted: toGroupId is null");
+            return;
         }
-    } else {
-        if (newSiblingId && newSiblingId !== -1) {
-            chrome.bookmarks.get(newSiblingId).then(result => {
-                if (toParentId !== fromParentId || oldIndex >= newIndex) {
-                    options.index = Math.max(0, result[0].index);
-                } else {
-                    options.index = Math.max(0, result[0].index - 1);
-                    // chrome-only off by 1 bug when moving a bookmark forward
-                    if (!chrome.runtime.getBrowserInfo) {
-                        options.index++;
-                    }
+    } else if (type === "changeIndex") {
+        if (oldIndex != null && newIndex != null && fromGroupId != null) {
+            await getData(['bookmarks', 'settings']).then(async data => {
+                const bookmarks = data.bookmarks;
+                const settings = data.settings;
+                const sameGroupBookmarks = bookmarks.filter(b => b.groupId === fromGroupId);
+
+                switch (settings.defaultSort) {
+                    case "custom":
+                        sameGroupBookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
+                        break;
+                    case "visits":
+                        sameGroupBookmarks.sort((a, b) => (b.visits || 0) - (a.visits || 0));
+                        break;
+                    case "date_ase":
+                        sameGroupBookmarks.sort((a, b) => (a.createtime || 0) - (b.createtime || 0));
+                        break;
+                    case "date_desc":
+                        sameGroupBookmarks.sort((a, b) => (b.createtime || 0) - (a.createtime || 0));
+                        break;
+                    default:
+                        console.log("moveBookmark aborted: unknown sort type");
+                        return;
                 }
-                move(id, options);
-            }).catch(err => {
-                console.log(err);
-            })
-        } else {
-            move(id, options);
+
+                if (settings.addBookmarkBtnPosition === "first") {
+                    newIndex = Math.max(0, newIndex - 1);
+                    oldIndex = Math.max(0, oldIndex - 1);
+                }
+
+                const targetBookmark = sameGroupBookmarks[oldIndex];
+                if (targetBookmark.id !== id) {
+                    console.warn("moveBookmark: target not found", id);
+                    return;
+                }
+
+                // 从原位置移除，并插入到新位置
+                sameGroupBookmarks.splice(oldIndex, 1);
+                sameGroupBookmarks.splice(newIndex, 0, targetBookmark);
+
+                // 重新计算 position，从 1 开始
+                sameGroupBookmarks.forEach((b, index) => {
+                    b.position = index + 1;
+                });
+
+                // 把修改同步回 bookmarks 全表
+                const updatedBookmarks = bookmarks.map(b => {
+                    return (b.groupId === fromGroupId)
+                        ? sameGroupBookmarks.find(sb => sb.id === b.id) || b
+                        : b;
+                });
+
+                settings.defaultSort = "custom";
+                await saveData({ settings: settings, bookmarks: updatedBookmarks }).then(() => {
+                    buildBookmarksByGroupId(updatedBookmarks, fromGroupId);
+                });
+
+                console.log(`Bookmark ${id} moved from ${oldIndex} to ${newIndex}`);
+            });
+        }
+        else {
+            console.log("moveBookmark aborted: (oldIndex != null && newIndex != null && fromGroupId != null) is false");
+            return;
         }
     }
 }
@@ -358,13 +427,13 @@ export async function refreshAllThumbnails() {
     bookmarks = data.bookmarks.filter(b => b.groupId === groupId);
 
     bookmarks.forEach(bookmark => {
-        if(bookmark.url && (bookmark.url.startsWith('https://') || bookmark.url.startsWith('http://'))) {
+        if (bookmark.url && (bookmark.url.startsWith('https://') || bookmark.url.startsWith('http://'))) {
             bookmarkToProcess.push(bookmark);
         }
     });
     chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
     showToast(' Capturing images...')
-    
+
 
     // chrome.bookmarks.getChildren(groupId).then(children => {
     //     if (children && children.length) {

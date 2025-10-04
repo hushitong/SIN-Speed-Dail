@@ -1,32 +1,18 @@
 import { state } from "./state.js"
 import { DOM } from "./dom.js"
-import { dragenterHandler, dragleaveHandler } from "./events.js";
+import { dragenterHandler, dragleaveHandler, dragoverHandler, dropHandler } from "./events.js";
 import { buildBookmarksByGroupId } from "./bookmarks.js";
 import { generateId } from "./utils.js";
-import { saveData } from "./data.js"
+import { getData, saveData } from "./data.js"
 import { showToast, animate, hideSettings } from "./ui.js";
 import { hideModals } from "./modals.js";
-import { reBuildGroupPages } from "./ui.js"
+import { printNewSetupPage, activeBookmorksContainer } from "./ui.js"
 
 // 显示某个分组
 // 仅修改样式，不重新加载数据再绘制
-export function showGroup(groupId) {
+export function activeGroup(groupId) {
+    console.log("activeGroup:", groupId);
     hideSettings();
-    let groups = document.getElementsByClassName('container');
-    for (let group of groups) {
-        if (group.id === groupId) {
-            group.style.display = "flex"
-            group.style.opacity = "0";
-            state.layoutgroup = true;
-            // transition between groups. todo more elegant solution
-            setTimeout(function () {
-                group.style.opacity = "1";
-                animate()
-            }, 20);
-        } else {
-            group.style.display = "none";
-        }
-    }
     // style the active tab
     let groupTitles = document.getElementsByClassName('groupTitle');
     for (let title of groupTitles) {
@@ -38,6 +24,31 @@ export function showGroup(groupId) {
     }
 }
 
+// 页面刷新：读取数据，重建分组标题
+export async function reBuildGroupPages(inData = null) {
+    if (!inData) state.data = await getData();
+    const bookmarks = state.data.bookmarks || [];
+
+    if (!bookmarks.length) {
+        DOM.addGroupButton.style.display = 'none';
+        printNewSetupPage();
+        return;
+    }
+
+    const groups = state.data.groups || [];
+
+    // clear any existing data so we can refresh
+    DOM.groupsContainer.innerHTML = '';
+
+    // Build group header links
+    if (groups && groups.length > 1) {
+        for (let group of groups) {
+            buildGroupLink(group.title, group.id);
+        }
+    }
+
+    return;
+}
 // 重新生成所有分组链接
 export function buildGroupsLinks(groups) {
     if (groups.length >= 1) {
@@ -46,6 +57,7 @@ export function buildGroupsLinks(groups) {
         }
     }
 }
+
 // 生成单个分组链接，并设置 class 和 click 事件
 export function buildGroupLink(groupTitle, groupId) {
     let a = document.createElement('a');
@@ -61,15 +73,23 @@ export function buildGroupLink(groupTitle, groupId) {
     let linkText = document.createTextNode(groupTitle);
     a.appendChild(linkText);
 
+    // 点击分组链接时，显示对应分组的书签
+    // 每次切换分组时，重新加载该分组的书签数据并绘制
     a.onclick = function () {
-        showGroup(groupId);
-        state.selectedGroupId = groupId;
+        console.log("Switch to group:", groupId);
+        activeGroup(groupId);
+        getData(['bookmarks']).then(data => {
+            buildBookmarksByGroupId(data.bookmarks.filter(bookmark => bookmark.groupId === groupId), groupId).then(() => {
+                activeBookmorksContainer(groupId);
+            });
+        });
+        // state.selectedGroupId = groupId;
         state.currentGroupId = groupId;
         state.scrollPos = 0;
         DOM.bookmarksContainerParent.scrollTop = state.scrollPos;
 
         state.settings.currentGroupId = groupId;
-        chrome.storage.local.set({ settings:state.settings });
+        chrome.storage.local.set({ settings: state.settings });
     };
 
     // 可拖拽目标为设定了 draggable="true" 的元素
@@ -77,6 +97,12 @@ export function buildGroupLink(groupTitle, groupId) {
     a.ondragenter = dragenterHandler;
     // 绑定拖拽事件：当可拖拽元素离开该目标时触发
     a.ondragleave = dragleaveHandler;
+    // 绑定拖拽事件：当可拖拽元素在该目标上方移动时持续触发
+    // 必须阻止默认行为，才能允许 drop 事件的触发
+    // 不阻止默认行为，当可拖拽元素在该目标释放时其触发流程为： dragenter  →  dragleave  →  dragend
+    a.ondragover = dragoverHandler;
+    // 绑定拖拽事件：当可拖拽元素在该目标释放时触发
+    a.ondrop = dropHandler;
 
     DOM.groupsContainer.appendChild(a);
 }
@@ -88,7 +114,7 @@ export function createGroup() {
     const id = "G." + generateId();
     state.data.groups.push({ id: id, title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
 
-    const groups = state.data.groups;
+    const groups = state.data.groups;       
     saveData({ groups }).then(() => {
         hideModals();
         reBuildGroupPages();
@@ -96,14 +122,15 @@ export function createGroup() {
     });
 }
 
-//修改分组
+// 修改分组
 export function editGroup() {
     let title = DOM.editgroupModalName.value.trim();
     state.data.groups.filter(g => g.id === state.targetGroupId)[0].title = title;
 
     const groups = state.data.groups;
     saveData({ groups }).then(() => {
-        hideModals()
+        hideModals();
+        reBuildGroupPages();
     }).catch(err => {
         console.log(err);
     });
@@ -119,7 +146,7 @@ export function removeGroup() {
 
     saveData({ groups: updateGroups, bookmarks: updateBookmarks }).then(() => {
         hideModals();
-        showToast("Goup Remove!",2000);
+        showToast("Goup Remove!", 2000);
         if (state.currentGroupId === state.targetGroupId) {
             let homeGroupId = state.homeGroup.id;
             state.currentGroupId = homeGroupId;
@@ -127,7 +154,8 @@ export function removeGroup() {
             chrome.storage.local.set({ settings: state.settings });
             reBuildGroupPages();
             buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
-            showGroup(homeGroupId);
+            activeBookmorksContainer(homeGroupId);
+            activeGroup(homeGroupId);
         } else {
             reBuildGroupPages();
         }
@@ -139,33 +167,22 @@ export function removeGroup() {
 // 移动分组顺序
 export function moveGroup(id, oldIndex, newIndex, newSiblingId) {
     console.log("movegroup:", id, oldIndex, newIndex, newSiblingId);
-    let options = {};
 
-    function move(id, options) {
-        chrome.bookmarks.move(id, options).then(result => {
-            // tabMessagePort.postMessage({ refreshInactive: true })
-        }).catch(err => {
-            console.log(err);
-        })
-    }
+    getData(['groups', 'settings']).then(async data => {
+        const groups = data.groups;
+        const targetGroup = groups[oldIndex];
+        if (targetGroup.id !== id) {
+            console.warn("moveGroup: target not found", id);
+            return;
+        }
+        groups.splice(oldIndex, 1);
+        groups.splice(newIndex, 0, targetGroup);
+        groups.forEach((b, index) => {
+            b.position = index + 1;
+        });
 
-    if (newSiblingId && newSiblingId !== -1) {
-        chrome.bookmarks.get(newSiblingId).then(result => {
-            if (oldIndex >= newIndex) {
-                options.index = Math.max(0, result[0].index);
-            } else {
-                options.index = Math.max(0, result[0].index - 1);
-                // chrome-only off by 1 bug when moving a bookmark forward
-                if (!chrome.runtime.getBrowserInfo) {
-                    options.index++;
-                }
-            }
-            move(id, options);
-        }).catch(err => {
-            console.log(err);
-        })
-    } else {
-        move(id, options);
-    }
+        await saveData({ groups: groups });
+        console.log(`Group ${id} moved from ${oldIndex} to ${newIndex}`);
+    });
 }
 

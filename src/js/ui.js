@@ -13,14 +13,14 @@ let boxes = [];
 // 建立整个书签页面，包括 分组标题列表 和 书签内容列表
 export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     // 获得 bookmarks 和 groups 数据
-    state.data = await getData();
+    state.data = await getData(['groups', 'bookmarks']);
     console.log("buildPages state.data", state.data, "selectedGroupId", selectedGroupId);
     const groups = state.data.groups;
 
     // 如果没有任何分组，添加一个主页分组
     if (groups.length === 0) {
         groups.unshift(state.homeGroup);
-        saveData({ groups }).then(() => {
+        await saveData({ groups }).then(() => {
             console.log("No groups found, added home group");
             state.data.groups = groups;
         });
@@ -47,19 +47,25 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     await buildBookmarksByGroupId(currentGroupBookmarks, selectedGroupId);
 
     // 在排除当前分组后，处理其他分组的书签
-    if (groups.length > 1) {
-        for (let group of groups) {
-            if (group.id !== selectedGroupId) {
-                const bookmarks = state.data.bookmarks.filter(b => b.groupId === group.id);
-                await buildBookmarksByGroupId(bookmarks, group.id);
-            }
-        }
-    }
+    // if (groups.length > 1) {
+    //     for (let group of groups) {
+    //         if (group.id !== selectedGroupId) {
+    //             const bookmarks = state.data.bookmarks.filter(b => b.groupId === group.id);
+    //             await buildBookmarksByGroupId(bookmarks, group.id);
+    //         }
+    //     }
+    // }
 
     // 激活被选择的分组，隐藏没被选择分组
+    activeBookmorksContainer(selectedGroupId);
+}
+
+// 激活指定分组的书签容器，隐藏其他分组的书签容器
+export function activeBookmorksContainer(groupId) {
+    console.log("activeBookmorksContainer groupId:", groupId);
     let bookmorksContainer = document.getElementById('tileContainer').getElementsByClassName('container');
     Array.from(bookmorksContainer).forEach(item => {
-        if (item.id === selectedGroupId) {
+        if (item.id === groupId) {
             item.style.display = "flex"
             setTimeout(() => {
                 item.style.opacity = "1";
@@ -75,52 +81,23 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     });
 }
 
-// 页面刷新：读取数据，重建分组标题
-export async function reBuildGroupPages(inData = null) {
-    if (!inData) state.data = await getData();
-    const bookmarks = state.data.bookmarks || [];
-
-    if (!bookmarks.length) {
-        DOM.addGroupButton.style.display = 'none';
-        printNewSetupPage();
-        return;
-    }
-
-    const groups = state.data.groups || [];
-
-    // clear any existing data so we can refresh
-    DOM.groupsContainer.innerHTML = '';
-
-    // Build group header links
-    if (groups && groups.length > 1) {
-        for (let group of groups) {
-            buildGroupLink(group.title, group.id);
-        }
-    }
-
-    return
-}
-
 // 没有任何书签时，显示初始界面
 export async function printNewSetupPage() {
     let fragment = document.createDocumentFragment();
 
-
-    let groupContainerEl = document.getElementById(state.selectedGroupId);
+    let groupContainerEl = document.getElementById(state.currentGroupId);
     if (!groupContainerEl) {
         groupContainerEl = document.createElement('div');
-        groupContainerEl.id = state.selectedGroupId;
+        groupContainerEl.id = state.currentGroupId;
         groupContainerEl.classList.add('container');
-        groupContainerEl.style.display = state.currentGroupId === state.selectedGroupId ? 'flex' : 'none';
+        groupContainerEl.style.display = 'flex';
         groupContainerEl.style.opacity = "0";
 
-        if (state.currentGroupId === state.selectedGroupId) {
-            setTimeout(() => {
-                groupContainerEl.style.opacity = "1";
-                animate();
-            }, 20);
-            document.querySelector(`[groupid="${state.currentGroupId}"]`)?.classList.add('activegroup');
-        }
+        setTimeout(() => {
+            groupContainerEl.style.opacity = "1";
+            animate();
+        }, 20);
+        document.querySelector(`[groupid="${state.currentGroupId}"]`)?.classList.add('activegroup');
         DOM.bookmarksContainerParent.append(groupContainerEl);
     }
 
@@ -226,7 +203,7 @@ export const debounce = (func, delay = 500, immediate = false) => {
 
 export const animate = debounce(() => {
     requestAnimationFrame(() => { // Use requestAnimationFrame for smoother updates
-        const nodes = document.querySelectorAll(`[id="${state.selectedGroupId}"] > .tile`);
+        const nodes = document.querySelectorAll(`[id="${state.currentGroupId}"] > .tile`);
         const total = nodes.length;
 
         if (!nodes.length) return;
@@ -296,10 +273,12 @@ export function initSettings(settings, wallpaperSrc) {
         applyBookmarkRelatedChanged(settings);
         applyOtherChanged(settings);
 
-        resolve();
+        // resolve();
 
         setDOM(settings);
         applyBackgroundChanged(settings.wallPaperEnable, wallpaperSrc);
+
+        console.log("initSettings settings end ");
     });
 }
 
@@ -320,6 +299,7 @@ function setDOM(settings) {
     DOM.bookmarkSizeSelect.value = settings.bookmarkSize;
     DOM.bookmarkRatioSelect.value = settings.dialRatio;
     DOM.defaultSortSelect.value = settings.defaultSort;
+    DOM.addBookmarkBtnPositionSelect.value = settings.addBookmarkBtnPosition;
     DOM.rememberGroupCheckbox.checked = settings.rememberGroup;
 }
 

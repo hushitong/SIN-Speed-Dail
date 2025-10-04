@@ -27,7 +27,8 @@ export let state = {
         showAddGroupsBtn: true,
         showClock: true,
         maxCols: '100',
-        defaultSort: 'first',
+        defaultSort: 'date_asc', // 'custom' | 'visits' | 'date_asc' | 'date_desc'
+        addBookmarkBtnPosition: 'first', // 'first' | 'last'
         bookmarkSize: 'medium',
         dialRatio: 'wide',
         currentGroupId: homeGroupId,
@@ -42,12 +43,12 @@ export let state = {
     wallpaperSrc: null, // 存储背景图地址
 
     currentGroupId: null,
-    selectedGroupId: null,
+    // selectedGroupId: null,
 
     scrollPos: 0,   // 存储书签容器的滚动位置，用于分组切换或刷新后恢复之前的滚动状态。
     layoutgroup: false,
 
-    targetTileId : null,  // 存储当前操作的书签（tile）的唯一 ID，用于删除、编辑等操作时定位具体书签。 格式为：groupId_bookmarkId
+    targetTileId: null,  // 存储当前操作的书签（tile）的唯一 ID，用于删除、编辑等操作时定位具体书签。 格式为：groupId_bookmarkId
     targetTileTitle: null, // 存储当前操作的书签（tile）的 标题，用于删除、编辑等操作时定位具体书签。
     targetTileHref: null,  // 存储当前操作的书签（tile）的 URL 链接，用于上下文菜单、编辑模态框等场景中获取目标书签的链接信息。
     targetNode: null,  // 存储当前操作的 DOM 节点（如书签元素、分组元素），用于拖拽、上下文菜单定位等场景。

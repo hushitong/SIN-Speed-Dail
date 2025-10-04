@@ -395,8 +395,8 @@
                     </div>
                     <div class='column controls'>
                         <select class="settingsCtl" id="dialRatio" name="dialRatio">
-                            <option value="square">Square</option>
-                            <option value="wide">Wide</option>
+                            <option value="square" data-locale="dialRatioSquare">Square</option>
+                            <option value="wide" data-locale="dialRatioWide">Wide</option>
                         </select>
                     </div>
                 </div>
@@ -406,10 +406,10 @@
                     </div>
                     <div class='column controls'>
                         <select class="settingsCtl" id="bookmarkSize" name="bookmarkSize">
-                            <option value="x-small">Extra Small</option>
-                            <option value="small">Small</option>
-                            <option value="medium">Medium</option>
-                            <option value="large">Large</option>
+                            <option value="x-small" data-locale="bookmarkSizeExtraSmall">Extra Small</option>
+                            <option value="small" data-locale="bookmarkSizeSmall">Small</option>
+                            <option value="medium" data-locale="bookmarkSizeMedium">Medium</option>
+                            <option value="large" data-locale="bookmarkSizeLarge">Large</option>
                         </select>
                     </div>
                 </div>
@@ -419,7 +419,7 @@
                     </div>
                     <div class='column controls'>
                         <select class="settingsCtl" id="maxcols" name="maxcols">
-                            <option value="100">Unlimited</option>
+                            <option value="100" data-locale="maxcolsUnlimited">Unlimited</option>
                             <option value="10">10</option>
                             <option value="9">9</option>
                             <option value="8">8</option>
@@ -437,8 +437,22 @@
                     </div>
                     <div class='column controls'>
                         <select class="settingsCtl" id="defaultSort" name="defaultSort">
-                            <option value="last">New dials last</option>
-                            <option value="first">New dials first</option>
+                            <option value="custom" data-locale="defaultSortCustom">User Custom</option>
+                            <option value="visits" data-locale="defaultSortVisits">Most visited first</option>
+                            <option value="date_asc" data-locale="defaultSortDateAsc">Oldest first</option>
+                            <option value="date_desc" data-locale="defaultSortDateDesc">Newest first</option>
+                        </select>
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class='column'>
+                        <label data-locale="addBookmarkButtonPosition">Add Bookmark Button Position</label>
+                    </div>
+                    <div class='column controls'>
+                        <select class="settingsCtl" id="addBookmarkBtnPosition" name="addBookmarkBtnPosition">
+                            <option value="first" data-locale="addBookmarkBtnPositionFirst">First</option>
+                            <option value="last" data-locale="addBookmarkBtnPositionLast">Last</option>
+                            <option value="hidden" data-locale="addBookmarkBtnPositionHidden">Hidden</option>
                         </select>
                     </div>
                 </div>
@@ -510,6 +524,12 @@
                 </div>
 
                 <hr>
+                <div class='row'>
+                    <div class='column'>
+                        <label id="initSettingBtn" data-locale="initSettingBtn"
+                            class="settingsCtl settingsLink">initial setting</label>
+                    </div>
+                </div>
                 <div class='row'>
                     <div class='column'>
                         <label id="importExportBtn" data-locale="importExportLink"

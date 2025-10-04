@@ -19,6 +19,7 @@ export function getSettingFromDOM(settings) {
     settings.bookmarkSize = DOM.bookmarkSizeSelect.value;
     settings.dialRatio = DOM.bookmarkRatioSelect.value;
     settings.defaultSort = DOM.defaultSortSelect.value;
+    settings.addBookmarkBtnPosition = DOM.addBookmarkBtnPositionSelect.value;
     settings.rememberGroup = DOM.rememberGroupCheckbox.checked;
     settings.currentGroupId = state.currentGroupId;
     console.log("getSettingFromDOM Settings after: ", settings);
@@ -255,6 +256,7 @@ export function importFromSD2(json, isMerge = false) {
     }
 }
 
+// todo: 还没有实现
 export function importFromFVD(json) {
     let bookmarks = json.db.dials.map(dial => ({
         title: dial.title,
@@ -266,145 +268,15 @@ export function importFromFVD(json) {
         id: group.id,
         title: group.name
     }));
-
-    // clear previous settings and import
-    chrome.storage.local.clear().then(() => {
-        // Create groups and bookmarks
-        let groupPromises = groups.map(group => {
-            if (group.id === 1) {
-                return Promise.resolve(selectedGroupId);
-            } else {
-                return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
-                    const matchingGroups = existingGroups.filter(group => group.parentId === selectedGroupId);
-                    if (matchingGroups.length > 0) {
-                        return matchingGroups[0].id;
-                    } else {
-                        return chrome.bookmarks.create({
-                            title: group.title,
-                            parentId: selectedGroupId
-                        }).then(node => node.id);
-                    }
-                });
-            }
-        });
-
-        Promise.all(groupPromises).then(groupIds => {
-            bookmarks.forEach(bookmark => {
-                let parentId = groupIds[bookmark.groupId];
-                chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsIngroup) {
-                        chrome.bookmarks.create({
-                            title: bookmark.title,
-                            url: bookmark.url,
-                            parentId: parentId
-                        });
-                    }
-                });
-            });
-
-            hideModals();
-            // refresh page
-            processRefresh();
-        }).catch(err => {
-            console.log(err);
-            importExportStatus.innerText = "FVD import error! Unable to create groups.";
-        });
-
-    }).catch(err => {
-        console.log(err);
-        importExportStatus.innerText = "Something went wrong. Please try again";
-    });
 }
 
+// todo: 还没有实现
 export function importFromYASD(json) {
     // import from yasd v3 format:
     let yasdData = json.yasd;
-
-    // Clear previous settings and import new data
-    chrome.storage.local.clear().then(() => {
-        // Store settings
-        if (yasdData.settings) {
-            chrome.storage.local.set({ settings: yasdData.settings });
-        }
-
-        // Store dials
-        let dialPromises = yasdData.dials.map(dial => {
-            let url = Object.keys(dial)[0];
-            let dialData = dial[url];
-            return chrome.storage.local.set({ [url]: dialData });
-        });
-
-        // Create groups and get their IDs
-        let groupPromises = yasdData.groups.sort((a, b) => a.index - b.index).map(group => {
-            return chrome.bookmarks.search({ title: group.title }).then(existinggroups => {
-                const matchinggroups = existinggroups.filter(f => f.parentId === selectedGroupId);
-                if (matchinggroups.length > 0) {
-                    return { oldId: group.id, newId: matchinggroups[0].id };
-                } else {
-                    return chrome.bookmarks.create({
-                        title: group.title,
-                        parentId: selectedGroupId
-                    }).then(node => {
-                        return { oldId: group.id, newId: node.id };
-                    });
-                }
-            });
-        });
-
-        Promise.all(groupPromises).then(groupIdMappings => {
-            let groupIdMap = {};
-            groupIdMappings.forEach(mapping => {
-                groupIdMap[mapping.oldId] = mapping.newId;
-            });
-
-            // Create bookmarks using the new group IDs
-            let bookmarkPromises = yasdData.bookmarks.map(bookmark => {
-                let parentId = groupIdMap[bookmark.groupid] || selectedGroupId;
-                return chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
-                    let existsIngroup = existingBookmarks.some(b => b.parentId === parentId);
-                    if (!existsIngroup) {
-                        return chrome.bookmarks.create({
-                            title: bookmark.title,
-                            url: bookmark.url,
-                            parentId: parentId
-                        });
-                    }
-                });
-            });
-
-            Promise.all([...dialPromises, ...bookmarkPromises]).then(() => {
-                hideModals();
-                // Refresh page
-                processRefresh();
-            }).catch(err => {
-                console.log(err);
-                importExportStatus.innerText = "Error! Unable to import bookmarks and dials.";
-            });
-        }).catch(err => {
-            console.log(err);
-            importExportStatus.innerText = "Error! Unable to create groups.";
-        });
-    }).catch(err => {
-        console.log(err);
-        importExportStatus.innerText = "Something went wrong. Please try again.";
-    });
 }
 
+// todo: 还没有实现
 export function importFromOldYASD(json) {
     // import from old yasd format
-    chrome.storage.local.clear().then(() => {
-        chrome.storage.local.set(json).then(result => {
-            hideModals();
-            // refresh page
-            //tabMessagePort.postMessage({handleImport: true});
-            processRefresh();
-        }).catch(err => {
-            console.log(err)
-            importExportStatus.innerText = "Error! Unable to parse file."
-        });
-    }).catch(err => {
-        console.log(err)
-        importExportStatus.innerText = "Error! Please try again"
-    })
 }

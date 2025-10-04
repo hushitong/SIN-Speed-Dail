@@ -9,7 +9,8 @@
     --image-scaling: contain;
     --dial-width: 220px;
     --dial-height: 142px;
-    --dial-margin: 14px; /*todo: oops accidentally bumped this from 12 to 18 */
+    --dial-margin: 14px;
+    /*todo: oops accidentally bumped this from 12 to 18 */
 }
 
 /* Apply a smooth transition for the background image */
@@ -17,7 +18,7 @@
     transition: background-image 0.5s ease-in-out, background-color 0.5s ease-in-out;
     background-size: cover;
     background-position: center;
-  }
+}
 
 .buttonContainer {
     display: flex;
@@ -66,7 +67,8 @@
     font-display: swap;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     width: 100%;
     height: 100%;
@@ -95,12 +97,13 @@ h1 {
     font-weight: 300;
     margin-block-start: 0.5em;
     margin-block-end: 0.5em;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Add text shadow */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    /* Add text shadow */
 }
 
 /* total width */
 #tileContainer::-webkit-scrollbar {
-    background-color: rgba(0,0,0,0.2);
+    background-color: rgba(0, 0, 0, 0.2);
     width: 7px;
 }
 
@@ -111,13 +114,13 @@ h1 {
 
 /* scrollbar itself */
 #tileContainer::-webkit-scrollbar-thumb {
-    background-color: rgba(255,255,255,0.4);
+    background-color: rgba(255, 255, 255, 0.4);
     border: 10px solid transparent;
 }
 
 /* set button(top and bottom of the scrollbar) */
 #tileContainer::-webkit-scrollbar-button {
-    display:none;
+    display: none;
 }
 
 #tileContainer {
@@ -128,7 +131,7 @@ h1 {
     transition: opacity 150ms ease-in;
     overflow-x: hidden;
     overflow-y: auto;
-    scrollbar-color: rgba(255,255,255,0.4) rgba(0,0,0,0.2);
+    scrollbar-color: rgba(255, 255, 255, 0.4) rgba(0, 0, 0, 0.2);
     scrollbar-width: thin;
 }
 
@@ -194,7 +197,8 @@ h1 {
 }
 
 .default-content.helpText.cta svg {
-    margin-right: 8px; /* Adjust the spacing as needed */
+    margin-right: 8px;
+    /* Adjust the spacing as needed */
     vertical-align: middle;
 }
 
@@ -218,6 +222,7 @@ h1 {
 
 .groupTitle:hover {
     opacity: 1;
+    transition: padding 160ms ease, outline 160ms ease;
 }
 
 .activegroup {
@@ -239,14 +244,11 @@ h1 {
     /*transition: width 240ms ease-in-out, height 300ms ease-in-out;*/
 }
 
-.tile:hover {
-
-}
-
 .tile-main {
     width: 100%;
     height: 100%;
     border-radius: inherit;
+    position: relative;
 }
 
 .tile-content {
@@ -268,6 +270,32 @@ h1 {
     text-overflow: ellipsis;
     padding: 5px 10px 0 10px;
     transition: opacity 160ms ease;
+}
+
+.tile-visit {
+    position: absolute;
+    border-radius: 50%;
+    width: 36px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    top: 1px;
+    left: 5px;
+    background-color: rgba(193, 10, 10, 0.5);
+}
+
+.tile-position {
+    position: absolute;
+    border-radius: 50%;
+    width: 36px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    top: 1px;
+    right: 5px;
+    background-color: rgba(96, 36, 199, 0.5);
 }
 
 .createDial {
@@ -298,7 +326,8 @@ a {
 }
 
 .selected {
-    visibility: hidden;
+    /* visibility: hidden; */
+    opacity: 0.3 
 }
 
 .dragging {
@@ -314,21 +343,25 @@ a {
     color: #ffffff;
     border: none;
     border-radius: 3px;
-    box-shadow: 0 0 10px 0 rgba(0,0,0,0.2);
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
     transition: visibility 0s, opacity 160ms ease;
 }
+
 .menu-options {
     list-style: none;
     padding: 0;
     margin: 10px 0 10px 0;
 }
+
 .menu-separator {
     padding: 5px;
 }
+
 .menu-option {
     cursor: default;
     padding: 5px 25px;
 }
+
 .menu-option:hover {
     background-color: #333333;
 }
@@ -346,7 +379,7 @@ a {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: rgba(0,0,0,0.6);
+    background-color: rgba(0, 0, 0, 0.6);
     transition: opacity 150ms;
 }
 
@@ -400,7 +433,7 @@ a {
     display: none;
 }
 
-.modal [type="file"] + label {
+.modal [type="file"]+label {
     border: none;
     color: #fff;
     cursor: default;
@@ -414,7 +447,7 @@ a {
     text-align: center;
 }
 
-.modal [type="file"] + label:hover {
+.modal [type="file"]+label:hover {
     background-color: #FF3A4FFF;
 }
 
@@ -464,29 +497,28 @@ a {
     padding: .4em;
 }
 
-.formItem > input,
-.formItem > textarea,
-.formItem > button {
+.formItem>input,
+.formItem>textarea,
+.formItem>button {
     padding: .6em;
     width: 100%;
     border-radius: 6px;
 }
 
-.formItem > button {
+.formItem>button {
     color: #ffffff;
     border: none;
 }
 
-.formItem > label {
+.formItem>label {}
 
-}
-
-.formItem > .action {
-    position: relative; /* Ensure the pseudo-element is positioned correctly */
+.formItem>.action {
+    position: relative;
+    /* Ensure the pseudo-element is positioned correctly */
     background-color: #111111;
 }
 
-.formItem > .actionSecondary {
+.formItem>.actionSecondary {
     background-color: #111111;
 }
 
@@ -498,7 +530,7 @@ a {
     border: none;
 }
 
-.formItem > .action::after {
+.formItem>.action::after {
     content: '';
     display: block;
     position: absolute;
@@ -511,7 +543,7 @@ a {
     transform-origin: 50% 50%;
 }
 
-.formItem > button {
+.formItem>button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -519,34 +551,34 @@ a {
     border: none;
 }
 
-.formItem > button svg {
+.formItem>button svg {
     margin-right: 5px;
     vertical-align: middle;
 }
 
-.formItem > .save {
+.formItem>.save {
     /* background-color: #13ac4e; */
     background-color: #1681d9;
 }
 
-.formItem > .delete {
+.formItem>.delete {
     background-color: #dc3545;
 }
 
-.formItem > .close {
+.formItem>.close {
     background-color: #333;
 }
 
-.formItem > .save:hover {
+.formItem>.save:hover {
     background-color: #1692EA;
 }
 
 
-.formItem > .action:hover::after {
+.formItem>.action:hover::after {
     transform: scaleX(1);
 }
 
-.formItem > .close:hover {
+.formItem>.close:hover {
     background-color: #444444
 }
 
@@ -558,16 +590,17 @@ input {
     font-size: medium;
 }
 
-input:focus + .inputBorder, .expand:focus .inputBorder {
+input:focus+.inputBorder,
+.expand:focus .inputBorder {
     transform: scaleX(1);
-  }
+}
 
 .inputBorder {
     border-top: 1px solid #1692EA;
     margin: 0 2px 0 2px;
     transform: scaleX(0);
     transition: transform 200ms;
-    transform-origin:  50% 50%;
+    transform-origin: 50% 50%;
 }
 
 .inputCloseBtn {
@@ -592,7 +625,8 @@ input:focus + .inputBorder, .expand:focus .inputBorder {
 }
 
 #fetchImageButton {
-    flex: 0 0 26px; /* Make the button 25% of the container's width */
+    flex: 0 0 26px;
+    /* Make the button 25% of the container's width */
 }
 
 #fetchImageButton svg {
@@ -617,17 +651,20 @@ input:focus + .inputBorder, .expand:focus .inputBorder {
     max-width: 100%;
 }
 
-.fc-image img, .fc-image picture {
+.fc-image img,
+.fc-image picture {
     max-height: 180px;
     max-width: 100%;
 }
 
-.fc-arrows .fc-next.fc-is-active .fc-icon, .fc-arrows .fc-prev.fc-is-active .fc-icon {
+.fc-arrows .fc-next.fc-is-active .fc-icon,
+.fc-arrows .fc-prev.fc-is-active .fc-icon {
     background-color: rgba(17, 17, 17, 0.9);
     color: #ccc;
 }
 
-.fc-arrows .fc-prev.fc-is-active:hover .fc-icon, .fc-arrows .fc-next.fc-is-active:hover .fc-icon {
+.fc-arrows .fc-prev.fc-is-active:hover .fc-icon,
+.fc-arrows .fc-next.fc-is-active:hover .fc-icon {
     color: #fff;
 }
 
@@ -636,24 +673,32 @@ input:focus + .inputBorder, .expand:focus .inputBorder {
 }
 
 .sidenav {
-    height: 100%; /* 100% Full-height */
-    width: 320px; /* 0 width - change this with JavaScript */
-    position: fixed; /* Stay in place */
+    height: 100%;
+    /* 100% Full-height */
+    width: 320px;
+    /* 0 width - change this with JavaScript */
+    position: fixed;
+    /* Stay in place */
     transform: translateX(100%);
-    z-index: 2; /* Stay on top */
-    top: 0; /* Stay at the top */
+    z-index: 2;
+    /* Stay on top */
+    top: 0;
+    /* Stay at the top */
     right: 0;
-    background: rgba(0,0,0,1);
+    background: rgba(0, 0, 0, 1);
     box-shadow: none;
-    overflow-x: hidden; /* Disable horizontal scroll */
-    transition: 360ms; /* 0.5 second transition effect to slide in the sidenav */
+    overflow-x: hidden;
+    /* Disable horizontal scroll */
+    transition: 360ms;
+    /* 0.5 second transition effect to slide in the sidenav */
     color: white;
     display: none;
     justify-content: center;
 }
 
 #groupsContainer {
-    padding: 20px 0; /*todo: nuke this when no groups are present so visually the dials appear centered */
+    padding: 20px 0;
+    /*todo: nuke this when no groups are present so visually the dials appear centered */
     margin-right: 160px;
     margin-left: 30px;
     display: flex;
@@ -676,6 +721,7 @@ input:focus + .inputBorder, .expand:focus .inputBorder {
     transition: 360ms ease;
     fill: var(--color);
 }
+
 #addgroupIcon:hover {
     opacity: 1;
 }
@@ -785,12 +831,12 @@ input:focus + .inputBorder, .expand:focus .inputBorder {
     vertical-align: middle;
 }
 
-#toast svg path, svg rect{
-    fill: rgba(255,255,255,0.5)
+#toast svg path,
+svg rect {
+    fill: rgba(255, 255, 255, 0.5)
 }
 
 #toastContent {
     vertical-align: middle;
     padding-left: 10px;
 }
-
