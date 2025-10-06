@@ -4,9 +4,10 @@ import { dragenterHandler, dragleaveHandler, dragoverHandler, dropHandler } from
 import { buildBookmarksByGroupId } from "./bookmarks.js";
 import { generateId } from "./utils.js";
 import { getData, saveData } from "./data.js"
-import { showToast, animate, hideSettings } from "./ui.js";
+import { animate, hideSettings } from "./ui.js";
 import { hideModals } from "./modals.js";
-import { printNewSetupPage, activeBookmorksContainer } from "./ui.js"
+import { printNewSetupPage, activeBookmarksContainer } from "./ui.js"
+import Toast from './minitoast.js';
 
 // 显示某个分组
 // 仅修改样式，不重新加载数据再绘制
@@ -80,7 +81,7 @@ export function buildGroupLink(groupTitle, groupId) {
         activeGroup(groupId);
         getData(['bookmarks']).then(data => {
             buildBookmarksByGroupId(data.bookmarks.filter(bookmark => bookmark.groupId === groupId), groupId).then(() => {
-                activeBookmorksContainer(groupId);
+                activeBookmarksContainer(groupId);
             });
         });
         // state.selectedGroupId = groupId;
@@ -146,7 +147,7 @@ export function removeGroup() {
 
     saveData({ groups: updateGroups, bookmarks: updateBookmarks }).then(() => {
         hideModals();
-        showToast("Goup Remove!", 2000);
+        Toast.success("Goup Remove!");
         if (state.currentGroupId === state.targetGroupId) {
             let homeGroupId = state.homeGroup.id;
             state.currentGroupId = homeGroupId;
@@ -154,7 +155,7 @@ export function removeGroup() {
             chrome.storage.local.set({ settings: state.settings });
             reBuildGroupPages();
             buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
-            activeBookmorksContainer(homeGroupId);
+            activeBookmarksContainer(homeGroupId);
             activeGroup(homeGroupId);
         } else {
             reBuildGroupPages();

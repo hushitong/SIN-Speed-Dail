@@ -30,6 +30,7 @@ export let state = {
         defaultSort: 'date_asc', // 'custom' | 'visits' | 'date_asc' | 'date_desc'
         addBookmarkBtnPosition: 'first', // 'first' | 'last'
         bookmarkSize: 'medium',
+        bookmarkMargin: 'middle',// 'Near' | 'Middle' | 'Far'
         dialRatio: 'wide',
         currentGroupId: homeGroupId,
         i18nLanguage: chrome.i18n.getUILanguage(), // 设置 UI 语言

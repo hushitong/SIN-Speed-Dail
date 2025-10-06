@@ -169,7 +169,7 @@ async function handleRefreshAllThumbs(data) {
 	refreshBatch(data.bookmarks);
 
 	async function refreshBatch(bookmarks, index = 0, retries = 2) {
-		const batchSize = 200;
+		const batchSize = 3;
 		const delay = 10000;
 		const batch = bookmarks.slice(index, index + batchSize);
 
@@ -202,20 +202,14 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 		console.log("getThumbnails: missing url or id")
 		return
 	}
-	// take screenshot if applicable
-	let screenshot = null;
-	// const tabs = await chrome.tabs.query({ windowId: chrome.windows.WINDOW_ID_CURRENT, active: true })
 
-	// if (tabs && tabs.length && tabs[0].url === url) {
-	// 	screenshot = await chrome.tabs.captureVisibleTab()
-	// }
+	let screenshot = null;
 	try {
 		screenshot = await fetchScreenshot(url);
-		console.log("bg screenshot length:", screenshot ? screenshot.length : 0);
+		console.log(`bg url:${url} get screenshot length:`, screenshot ? screenshot.length : 0);
 
-		// cant parse images from dom in service worker: delegate to offscreen document
+		// bg 不能操作 dom，只能委托给 offscreen 做
 		await setupOffscreenDocument('offscreen.html');
-
 		chrome.runtime.sendMessage({
 			target: 'offscreen',
 			data: {
@@ -227,9 +221,9 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 				forcePageReload: options.forcePageReload,
 			}
 		}).then(response => {
-			console.log('offscreen response:', response);  // 可选：处理响应
+			console.log('offscreen response:', response);
 		}).catch(err => {
-			console.error('SendMessage error:', err);  // 捕获 promise reject，避免 uncaught
+			console.error('getThumbnails SendMessage to offscreen error:', err);
 		});;
 	}
 	catch (err) {
@@ -244,9 +238,9 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 				err: err.message
 			}]
 		}).then(response => {
-			console.log('newtab response:', response);  // 可选：处理响应
+			console.log('newtab response:', response);
 		}).catch(err => {
-			console.error('SendMessage error:', err);  // 捕获 promise reject，避免 uncaught
+			console.error('SendMessage error:', err);
 		});
 		// todo：告知用户
 	}

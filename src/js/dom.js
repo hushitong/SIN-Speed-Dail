@@ -78,6 +78,7 @@ export const DOM = {
     defaultSortSelect: document.getElementById("defaultSort"),  // 书签默认排序方式
     addBookmarkBtnPositionSelect: document.getElementById("addBookmarkBtnPosition"), // 新增书签按钮位置
     bookmarkSizeSelect: document.getElementById("bookmarkSize"),    // 书签大小
+    bookmarkMarginSelect:document.getElementById("bookmarkMargin"),   // 书签间隔
     bookmarkRatioSelect: document.getElementById("dialRatio"),  // 书签形状
     bookmarkMaxColsSelect: document.getElementById("maxcols"),  // 书签列数
     showTitlesCheckbox: document.getElementById("showTitles"),  // 是否显示书签标题
@@ -85,7 +86,8 @@ export const DOM = {
     showCreateBookmarkCheckbox: document.getElementById("showCreateDial"),  // 是否显示新增书签按钮+
     showCreateGroupsCheckbox: document.getElementById("showgroups"),    // 是否显示新增分组按钮
     rememberGroupCheckbox: document.getElementById("remembergroup"),    // 是否记住当前选择分组
-    initSettingBtn: document.getElementById("initSettingBtn"),
+    initSettingBtn: document.getElementById("initSettingBtn"),  // 清空设定按钮
+    clearAllBtn: document.getElementById("clearAllBtn"),    //清空所有数据
     importExportBtn: document.getElementById("importExportBtn"),
     helpBtn: document.getElementById("help"),
 

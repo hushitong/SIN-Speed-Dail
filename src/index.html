@@ -326,17 +326,7 @@
 
     <div id="clock"></div>
 
-    <div id="toast">
-        <svg height="30px" id="loader-1" viewBox="0 0 50 50" width="30px" x="0px" xml:space="preserve"
-            xmlns="http://www.w3.org/2000/svg" y="0px">
-            <path d="M25.251,6.461c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615V6.461z"
-                fill="#000">
-                <animateTransform attributeName="transform" attributeType="xml" dur="0.8s" from="0 25 25"
-                    repeatCount="indefinite" to="360 25 25" type="rotate" />
-            </path>
-        </svg>
-        <span id="toastContent"></span>
-    </div>
+    <div id="toast-container"></div>
 
     <!-- settings nav -->
     <div class="sidenav" id="sidenav">
@@ -410,6 +400,19 @@
                             <option value="small" data-locale="bookmarkSizeSmall">Small</option>
                             <option value="medium" data-locale="bookmarkSizeMedium">Medium</option>
                             <option value="large" data-locale="bookmarkSizeLarge">Large</option>
+                            <option value="x-large" data-locale="bookmarkSizeExtraLarge">Extra Large</option>
+                        </select>
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class='column'>
+                        <label data-locale="bookmarkMargin">Dial Interval</label>
+                    </div>
+                    <div class='column controls'>
+                        <select class="settingsCtl" id="bookmarkMargin" name="bookmarkMargin">
+                            <option value="near" data-locale="bookmarkMarginNear">Near</option>
+                            <option value="middle" data-locale="bookmarkMarginMiddle">Middle</option>
+                            <option value="far" data-locale="bookmarkMarginFar">Far</option>
                         </select>
                     </div>
                 </div>
@@ -528,6 +531,12 @@
                     <div class='column'>
                         <label id="initSettingBtn" data-locale="initSettingBtn"
                             class="settingsCtl settingsLink">initial setting</label>
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class='column'>
+                        <label id="clearAllBtn" data-locale="clearAllBtn"
+                            class="settingsCtl settingsLink">clear all datas</label>
                     </div>
                 </div>
                 <div class='row'>

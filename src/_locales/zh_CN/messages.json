@@ -217,6 +217,9 @@
   "bookmarkSizeLarge": {
     "message": "大"
   },
+  "bookmarkSizeExtraLarge": {
+    "message": "超大"
+  },
   "maxcolsUnlimited": {
     "message": "无限制"
   },
@@ -240,5 +243,20 @@
   },
   "addBookmarkBtnPositionHidden": {
     "message": "隐藏"
+  },
+  "clearAllBtn": {
+    "message": "清空所有数据"
+  },
+  "bookmarkMargin": {
+    "message": "书签间隔"
+  },
+  "bookmarkMarginNear": {
+    "message": "近"
+  },
+  "bookmarkMarginMiddle": {
+    "message": "中"
+  },
+  "bookmarkMarginFar": {
+    "message": "远"
   }
 }

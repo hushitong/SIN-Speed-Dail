@@ -3,8 +3,10 @@ import { DOM } from "./dom.js"
 import { getData, saveData } from "./data.js"
 import { visitAddOne, generateId, hexToCssGradient, rgbaToCssGradient, rgbToHex, getBgColor } from "./utils.js";
 import { hideModals, buildCreateBookmarkModal, modalShowEffect } from "./modals.js";
-import { showToast, animate, hideSettings } from "./ui.js";
+import { animate, hideSettings, activeBookmarksContainer } from "./ui.js";
 import { onMoveHandler, onGroupMoveEndHandler } from "./events.js";
+import { activeGroup, buildGroupsLinks } from "./groups.js";
+import Toast from './minitoast.js';
 
 function rectifyUrl(url) {
     if (url && !url.startsWith('https://') && !url.startsWith('http://')) {
@@ -15,16 +17,18 @@ function rectifyUrl(url) {
 }
 
 // 添加新书签
-export function createBookmark() {
+export function quickCreateBookmark() {
     console.log("createBookmark");
     let url = rectifyUrl(DOM.createDialModalURL.value.trim());
     // todo: 真正使用标题而不是 URL 作为标题
     let title = url;
     saveNewBookmark(state.currentGroupId, url, title).then(result => {
         hideModals();
-        showToast(' Capturing images...');
-        console.log('createBookmark sendMessage');
-        chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { id: result, url: url, groupId: state.currentGroupId, changeType: 'Add' } });
+        Toast.success(`成功添加书签，url：${url}`);
+        Toast.info(`获取书签缩略图ing...`);
+        let sendMessageData = { target: 'background', type: 'handleBookmarkChanged', data: { id: result, url: url, groupId: state.currentGroupId, changeType: 'Add' } };
+        console.log('quickCreateBookmark sendMessage', sendMessageData);
+        chrome.runtime.sendMessage(sendMessageData);
     });
 }
 
@@ -32,7 +36,12 @@ export function createBookmark() {
 export async function saveNewBookmark(groupId, url, title) {
     if (!url || !title) return;
 
-    const data = await getData();
+    const data = await getData(['groups', 'bookmarks']);
+    data.bookmarks = data.bookmarks || [];
+    let isFirstBookmark = false;
+    if (data.bookmarks.length === 0)
+        isFirstBookmark = true;
+
     // 获取当前分组的最大位置
     const groupBookmarks = data.bookmarks.filter(b => b.groupId === groupId);
     const maxPosition = groupBookmarks.length > 0
@@ -53,8 +62,13 @@ export async function saveNewBookmark(groupId, url, title) {
 
     data.bookmarks.push(newBookmark);
     await saveData(data);
-    state.data = data; // 更新全局状态
+    state.data = data;
     buildBookmarksByGroupId(data.bookmarks.filter(b => b.groupId === groupId), groupId);
+    activeBookmarksContainer(groupId);
+    if (isFirstBookmark) {
+        buildGroupsLinks(data.groups)
+        activeGroup(groupId);
+    }
     return newId;
 }
 
@@ -372,7 +386,8 @@ export async function moveBookmark(type, id, fromGroupId, toGroupId, oldIndex, n
 // 删除书签
 export async function removeBookmark(id) {
     state.data = await getData();
-
+    let title = state.data.bookmarks.find(bookmark => bookmark.id === id)?.title;
+    
     // 过滤掉要删除的书签
     const updatedBookmarks = state.data.bookmarks.filter(bookmark => bookmark.id !== id);
 
@@ -381,6 +396,7 @@ export async function removeBookmark(id) {
         chrome.storage.local.set({
             bookmarks: updatedBookmarks
         }, () => {
+            Toast.success(`成功移除书签，title：${title}`);
             chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId: state.currentGroupId, changeType: 'Remove' } });
             resolve(true);
         });
@@ -410,7 +426,7 @@ export function refreshThumbnails(url, tileid) {
     let parentId = tileid.split("-")[0];
     let id = tileid.split("-")[1];
 
-    showToast(' Capturing images...')
+    Toast.info(' Capturing images...')
     chrome.runtime.sendMessage({ target: 'background', type: 'refreshThumbs', data: { url, id, parentId } });
 }
 
@@ -432,24 +448,7 @@ export async function refreshAllThumbnails() {
         }
     });
     chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
-    showToast(' Capturing images...')
-
-
-    // chrome.bookmarks.getChildren(groupId).then(children => {
-    //     if (children && children.length) {
-    //         for (let child of children) {
-    //             if (child.url && (child.url.startsWith('https://') || child.url.startsWith('http://'))) {
-    //                 //urls.push(child.url);
-    //                 // push an object with the url and the id
-    //                 bookmarks.push({ url: child.url, id: child.id, parentId: child.parentId });
-    //             }
-    //         }
-    //         chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
-    //         showToast(' Capturing images...')
-    //     }
-    // }).catch(err => {
-    //     console.log(err);
-    // });
+    Toast.info(' Capturing images...')
 }
 
 ///////////////////////////////////////////////////////////////
@@ -638,7 +637,7 @@ export function saveBookmark() {
                     }
 
                     if (url !== newUrl && toastContent.innerText === '') {
-                        showToast(' Capturing images...')
+                        Toast.info(' Capturing images...')
                     }
                 }
             })

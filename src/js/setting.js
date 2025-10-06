@@ -1,8 +1,9 @@
 import { DOM } from "./dom.js";
 import { state } from "./state.js"
 import { hideModals } from "./modals.js";
-import { processRefresh, showToast } from "./ui.js";
+import { processRefresh } from "./ui.js";
 import { generateId } from "./utils.js";
+import Toast from './minitoast.js';
 
 // 由页面 DOM 元素获得 setting 信息
 export function getSettingFromDOM(settings) {
@@ -17,6 +18,7 @@ export function getSettingFromDOM(settings) {
     settings.showClock = DOM.showClockCheckbox.checked;
     settings.maxCols = DOM.bookmarkMaxColsSelect.value;
     settings.bookmarkSize = DOM.bookmarkSizeSelect.value;
+    settings.bookmarkMargin = DOM.bookmarkMarginSelect.value;
     settings.dialRatio = DOM.bookmarkRatioSelect.value;
     settings.defaultSort = DOM.defaultSortSelect.value;
     settings.addBookmarkBtnPosition = DOM.addBookmarkBtnPositionSelect.value;
@@ -40,6 +42,7 @@ export async function saveSettings(settings, wallpaperSrc, isGetSettingFromDOM =
         console.log("wallpaperSrc saved after: ", wallpaperSrc.length < 100 ? wallpaperSrc : wallpaperSrc.substring(200, 20));
     }
 
+    console.log("settings before save: settings",settings);
     await chrome.storage.local.set(dataToSave)
         .then(() => {
             state.settings = settings;

@@ -11,16 +11,17 @@ import {
 import {
     showContextMenu, hideMenus, hideSettings, openSettings, initSettings, buildGroupsAndBookmarksPages,
     applyBackgroundChanged, applyWallpaperEnableChanged, applyBookmarkRelatedChanged, applyOtherChanged,
-    showToast, hideToast, processRefresh, layout
+    processRefresh, layout
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
     saveBookmark, buildBookmarksByGroupId,
-    createBookmark, removeBookmark, moveBookmark,
+    quickCreateBookmark, removeBookmark, moveBookmark,
     setBackgroundImages, refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
 import { createGroup, editGroup, removeGroup, moveGroup, activeGroup } from "./groups.js";
 import { state } from "./state.js"
+import Toast from './minitoast.js';
 
 let targetGroupName = null;
 let targetGroupLink = null;
@@ -84,7 +85,7 @@ export function initEvents() {
     window.addEventListener("mousedown", e => {
         console.log("mousedown event target", e.target);
         hideMenus();
-        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'addBookmarkBtnPosition' || e.target.id === 'bookmarkSize' || e.target.id === 'dialRatio') {
+        if (e.target.type === 'text' || e.target.id === 'maxcols' || e.target.id === 'defaultSort' || e.target.id === 'addBookmarkBtnPosition' || e.target.id === 'bookmarkSize' || e.target.id === 'dialRatio' || e.target.id === 'bookmarkMargin') {
             return
         }
         if (e.target.className.baseVal === 'gear') {
@@ -184,23 +185,24 @@ export function initEvents() {
             hideMenus();
             hideModals();
         } else if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-            event.preventDefault(); // Prevent the default browser behavior
+            event.preventDefault();
+            DOM.searchInput.value = '';
             DOM.searchContainer.classList.toggle('active');
-            // focus it
-            setTimeout(() => DOM.searchInput.focus(), 200); // cant focus it immediate with the transition, Delay focus to ensure visibility
+            filterDials('');
+            setTimeout(() => DOM.searchInput.focus(), 200);
         }
     });
 
     // 窗口大小调整
     window.addEventListener('resize', onResize);
 
-    DOM.createBookmarkModalSave.addEventListener("click", createBookmark);
+    DOM.createBookmarkModalSave.addEventListener("click", quickCreateBookmark);
     DOM.editBookmarkModalSave.addEventListener("click", saveBookmark);
     DOM.addGroupButton.addEventListener("click", addGroupBtn);
     DOM.createGroupModalSave.addEventListener("click", createGroup);
     DOM.editGroupModalSave.addEventListener("click", editGroup);
     DOM.deleteGroupModalSave.addEventListener("click", removeGroup);
-    DOM.refreshAllModalSave.addEventListener("click", refreshAllThumbnails);
+    DOM.refreshAllModalSave.addEventListener("click", refreshAllThumbnails);    // 刷新当前分组所有缩略图
 
     Array.from(DOM.closeModal).forEach(button => {
         button.onclick = function (e) {
@@ -226,7 +228,7 @@ export function initEvents() {
     DOM.createDialModalURL.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            createBookmark();
+            quickCreateBookmark();
         }
     });
 
@@ -234,21 +236,24 @@ export function initEvents() {
     DOM.bookmarkRatioSelect.oninput = function (e) {
         saveSettings(state.settings);
         applyBookmarkRelatedChanged(state.settings);
-        // applySettings(state.settings);
     }
 
     // 书签最大列数
     DOM.bookmarkMaxColsSelect.oninput = function (e) {
         saveSettings(state.settings);
         applyBookmarkRelatedChanged(state.settings);
-        // applySettings(state.settings);
     }
 
     // 书签大小
     DOM.bookmarkSizeSelect.oninput = function (e) {
         saveSettings(state.settings);
         applyBookmarkRelatedChanged(state.settings);
-        // applySettings(state.settings);
+    }
+
+    // 书签间隔
+    DOM.bookmarkMarginSelect.oninput = function (e) {
+        saveSettings(state.settings);
+        applyBookmarkRelatedChanged(state.settings);
     }
 
     // 书签默认排序方式
@@ -256,7 +261,6 @@ export function initEvents() {
         if (state.settings.defaultSort !== DOM.defaultSortSelect.value) {
             processRefresh();
             saveSettings(state.settings);
-            // applySettings(state.settings);
         }
     }
 
@@ -445,6 +449,7 @@ export function initEvents() {
         hideSettings();
     });
 
+    // 清空设定
     DOM.initSettingBtn.onclick = function () {
         // 弹出确认框，提示用户操作后果
         const isConfirm = confirm('确定要清除所有设置吗？此操作将所有用户设置，且不可恢复。');
@@ -457,7 +462,27 @@ export function initEvents() {
             saveSettings(state.settings, state.wallpaperSrc, false).then(() => {
                 initSettings(state.settings, state.wallpaperSrc);
                 buildGroupsAndBookmarksPages(state.currentGroupId);
-                showToast("已恢复初始设置", 3000);
+                Toast.success("已恢复初始设置");
+            });
+        }
+    }
+
+    // 清空所有数据
+    DOM.clearAllBtn.onclick = function () {
+        // 弹出确认框，提示用户操作后果
+        const isConfirm = confirm('确定要清除数据吗？此操作将所有用户设置，且不可恢复。');
+        // 只有用户点击“确定”（isConfirm 为 true）时才执行
+        if (isConfirm) {
+            // 清空 chrome.storage.local 中的所有数据
+            chrome.storage.local.clear(function () {
+                if (chrome.runtime.lastError) {
+                    console.error("清空数据失败：", chrome.runtime.lastError);
+                    Toast.error(`清空数据失败：${chrome.runtime.lastError}`);
+                } else {
+                    console.log("所有数据已成功清空");
+                    Toast.success("所有数据已成功清空");
+                    location.reload();
+                }
             });
         }
     }
@@ -475,18 +500,14 @@ export function initEvents() {
         chrome.tabs.create({ url: helpUrl });
     }
 
-    // Add event listener for search input
+    // 搜索
     DOM.searchInput.addEventListener('input', function (e) {
         const searchTerm = e.target.value.toLowerCase();
         filterDials(searchTerm);
     });
-
     document.getElementById('closeSearch').addEventListener('click', () => {
-        const searchInput = document.getElementById('searchInput');
-        const searchContainer = document.getElementById('searchContainer');
-
-        searchInput.value = ''; // Clear the search input
-        searchContainer.classList.remove('active'); // Hide the search container
+        DOM.searchInput.value = '';
+        DOM.searchContainer.classList.remove('active');
         filterDials('');
     });
 
@@ -531,7 +552,7 @@ export function initEvents() {
                         console.log(state.currentGroupId, "=========================================", data.settings.currentGroupId)
                         buildGroupsAndBookmarksPages(data.settings.currentGroupId);
                         // processRefresh({ currentGroupId: state.homeGroup.id });
-                        showToast("导入成功！", 1500);
+                        Toast.success("导入成功！");
                     }).catch(err => {
                         console.error(err);
                         DOM.importExportStatus.innerText = "SD2 import error! Unable to save bookmarks.";
@@ -596,10 +617,10 @@ function handleMessages(message) {
     }
 
     if (message.data.refresh) {
-        hideToast();
+        // hideToast();
         processRefresh();
     } else if (message.data.reloadGroups) {
-        hideToast();
+        // hideToast();
         processRefresh({ groupsOnly: true });
     } else if (message.type === 'thumbBatch') {
         // lets update the backgroundImage with the thumbnail for each element using its id (parentId + id)
@@ -618,13 +639,13 @@ function handleMessages(message) {
         //     bgColor
         // }]
         setBackgroundImages(message.data);
-        hideToast();
+        // hideToast();
     } else if (message.type === 'GetThumbErr') {
         // error getting thumbnail for url
         // data is an array of objects containing id, groupId, url and err
         console.log("Error getting thumbnail for url:", message.data);
-        hideToast();
-        showToast("Error getting thumbnail for url: " + message.data[0].url + " : " + message.data[0].err, 5000);
+        // hideToast();
+        Toast.error("Error getting thumbnail for url: " + message.data[0].url + " : " + message.data[0].err);
     }
 }
 

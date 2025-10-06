@@ -9,8 +9,8 @@
     --image-scaling: contain;
     --dial-width: 220px;
     --dial-height: 142px;
-    --dial-margin: 14px;
-    /*todo: oops accidentally bumped this from 12 to 18 */
+    --dial-margin: 7px;
+    --dial-content-height: 124;
 }
 
 /* Apply a smooth transition for the background image */
@@ -213,15 +213,50 @@ h1 {
     opacity: 0;
 }
 
-.groupTitle {
-    opacity: 0.85;
-    font-weight: bold;
-    transition: padding 160ms ease, outline 160ms ease;
-    margin: 12px;
+#groupsContainer {
+    padding: 5px 0;
+    margin-right: 160px;
+    margin-left: 30px;
+    display: flex;
+    align-items: baseline;
 }
 
-.groupTitle:hover {
+#groups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+
+#addgroupIcon {
+    display: var(--show-groups);
+    height: 1.2rem;
+    vertical-align: middle;
+    opacity: 0.7;
+    margin-left: 12px;
+    margin-right: 12px;
+    transition: 360ms ease;
+    fill: var(--color);
+}
+
+#addgroupIcon:hover {
     opacity: 1;
+}
+
+.groupTitle {
+    display: inline-block;
+    opacity: 0.85;
+    font-size: 16px;
+    font-weight: bold;
+    transition: padding 160ms ease, outline 160ms ease;
+    border-bottom: 2px solid transparent;
+    padding: 6px 12px;
+    margin: 0px;
+}
+
+/* 只对非 activegroup 的 groupTitle 启用 hover 效果 */
+.groupTitle:not(.activegroup):hover {
+    opacity: 1;
+    border-bottom-color: #0078ff;
     transition: padding 160ms ease, outline 160ms ease;
 }
 
@@ -229,6 +264,9 @@ h1 {
     opacity: 1;
     font-size: 20px;
     font-weight: 600;
+    color: #fff;
+    background: rgba(0, 120, 255, 0.15);
+    border-radius: 6px;
 }
 
 #deletegroupModalName {
@@ -247,6 +285,7 @@ h1 {
 .tile-main {
     width: 100%;
     height: 100%;
+    z-index: 0;
     border-radius: inherit;
     position: relative;
 }
@@ -263,13 +302,28 @@ h1 {
 }
 
 .tile-title {
-    opacity: var(--title-opacity);
+    position: relative;
+    z-index: 0;
+    /* 建立层叠上下文 */
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    padding: 5px 10px 0 10px;
-    transition: opacity 160ms ease;
+    padding: 3px 10px;
+    border-radius: inherit;
+}
+
+.tile-title::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    /* 等价于 top/right/bottom/left 全是 0 */
+    background-color: #999;
+    opacity: 0.2;
+    /* 背景透明度 */
+    border-radius: inherit;
+    z-index: -1;
+    /* 保证背景在文字后面 */
 }
 
 .tile-visit {
@@ -327,7 +381,7 @@ a {
 
 .selected {
     /* visibility: hidden; */
-    opacity: 0.3 
+    opacity: 0.3
 }
 
 .dragging {
@@ -696,35 +750,7 @@ input:focus+.inputBorder,
     justify-content: center;
 }
 
-#groupsContainer {
-    padding: 20px 0;
-    /*todo: nuke this when no groups are present so visually the dials appear centered */
-    margin-right: 160px;
-    margin-left: 30px;
-    display: flex;
-    align-items: baseline;
-}
 
-#groups {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-}
-
-#addgroupIcon {
-    display: var(--show-groups);
-    height: 1.2rem;
-    vertical-align: middle;
-    opacity: 0.7;
-    margin-left: 12px;
-    margin-right: 12px;
-    transition: 360ms ease;
-    fill: var(--color);
-}
-
-#addgroupIcon:hover {
-    opacity: 1;
-}
 
 #settingsBtn {
     display: var(--settings);
@@ -738,8 +764,8 @@ input:focus+.inputBorder,
     height: 24px;
     width: 24px;
     position: absolute;
-    right: 30px;
-    top: 30px;
+    right: 20px;
+    top: 16px;
     fill: var(--color);
     filter: opacity(0.7);
     transition: opacity 160ms ease;
@@ -803,7 +829,7 @@ input:focus+.inputBorder,
     position: absolute;
     display: var(--clock);
     right: 60px;
-    top: 26px;
+    top: 12px;
     color: var(--color);
     opacity: 0.85;
     font-size: x-large;
@@ -811,32 +837,79 @@ input:focus+.inputBorder,
     transition: 160ms ease;
 }
 
-#toast {
+
+/* Toast 容器 */
+#toast-container {
     position: fixed;
-    right: 0;
-    bottom: 30px;
-    max-width: 50%;
-    padding: 20px;
-    text-overflow: ellipsis;
-    line-height: 2;
-    background-color: black;
-    color: white;
-    opacity: 0.8;
-    transform: translateX(100%);
-    transition: 200ms ease;
-    z-index: 2;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+    pointer-events: none;
 }
 
-#toast svg {
-    vertical-align: middle;
+/* Toast 主体 */
+.toast {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 250px;
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: translateX(-120%);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    pointer-events: auto;
+    overflow: hidden;
 }
 
-#toast svg path,
-svg rect {
-    fill: rgba(255, 255, 255, 0.5)
+/* 显示动画 */
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
 }
 
-#toastContent {
-    vertical-align: middle;
-    padding-left: 10px;
+/* 类型样式 */
+.toast-info { background-color: #2d8cf0; }
+.toast-success { background-color: #19be6b; }
+.toast-error { background-color: #e54d42; }
+.toast-stats { background-color: #909399; }
+
+/* 关闭按钮 */
+.toast-close {
+    margin-left: 10px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    transition: opacity 0.2s ease;
 }
+.toast-close:hover { opacity: 0.6; }
+
+/* 进度条 */
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.4);
+    transform-origin: left;
+    transform: scaleX(1);
+    transition: transform linear;
+}
+
+/* 鼠标悬停高亮 */
+.toast:hover { filter: brightness(1.1); cursor: pointer; }
+

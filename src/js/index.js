@@ -17,9 +17,10 @@ function displayClock() {
     DOM.clock.textContent = new Date().toLocaleString('zh-CN', {
         hour12: false,
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
+        second: "2-digit"
     });
-    setTimeout(displayClock, 10000);
+    setTimeout(displayClock, 200);
 }
 displayClock();
 
@@ -29,30 +30,31 @@ async function init() {
 
     initEvents();
     // apply_i18n();
-
+    // await getData(['aa']).then(async data => {
+    //     console.log("init get data from storage:", data);
+    // });
     await getData(['settings', 'wallpaperSrc']).then(async data => {
         console.log("init get data from storage:", data);
         let wallpaperSrc = null;
         let isNeedUpdate = false;
-        if (data) {
-            if (data.settings) {
-                state.settings = data.settings;
-            } else {
-                state.settings = state.defaults;
-                isNeedUpdate = true;
-            }
-            if (data.wallpaperSrc) {
-                state.wallpaperSrc = data.wallpaperSrc;
-                wallpaperSrc = data.wallpaperSrc;
-            } else {
-                state.wallpaperSrc = state.defaultWallpaperSrc;
-                wallpaperSrc = state.defaultWallpaperSrc;
-                isNeedUpdate = true;
-            }
-        }
-        state.currentGroupId = state.settings.currentGroupId;
-        // state.selectedGroupId = state.settings.currentGroupId;
 
+        if (data.settings) {
+            console.log(data.settings);
+            state.settings = data.settings;
+        } else {
+            state.settings = state.defaults;
+            isNeedUpdate = true;
+        }
+        if (data.wallpaperSrc) {
+            state.wallpaperSrc = data.wallpaperSrc;
+            wallpaperSrc = data.wallpaperSrc;
+        } else {
+            state.wallpaperSrc = state.defaultWallpaperSrc;
+            wallpaperSrc = state.defaultWallpaperSrc;
+            isNeedUpdate = true;
+        }
+
+        state.currentGroupId = state.settings.currentGroupId;
         if (isNeedUpdate) {
             await saveSettings(state.settings, wallpaperSrc, false);
         }

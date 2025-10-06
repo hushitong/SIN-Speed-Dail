@@ -32,8 +32,6 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
         return;
     }
 
-    // 分组多于1，根据 position 进行排序
-    // todo: 需要结合多种条件进行排序： position, 访问次数，最后访问时间等
     if (groups.length > 1)
         groups.sort((a, b) => (a.position || 0) - (b.position || 0));
 
@@ -46,24 +44,14 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     const currentGroupBookmarks = state.data.bookmarks.filter(b => b.groupId === selectedGroupId);
     await buildBookmarksByGroupId(currentGroupBookmarks, selectedGroupId);
 
-    // 在排除当前分组后，处理其他分组的书签
-    // if (groups.length > 1) {
-    //     for (let group of groups) {
-    //         if (group.id !== selectedGroupId) {
-    //             const bookmarks = state.data.bookmarks.filter(b => b.groupId === group.id);
-    //             await buildBookmarksByGroupId(bookmarks, group.id);
-    //         }
-    //     }
-    // }
-
     // 激活被选择的分组，隐藏没被选择分组
-    activeBookmorksContainer(selectedGroupId);
+    activeBookmarksContainer(selectedGroupId);
 }
 
 // 激活指定分组的书签容器，隐藏其他分组的书签容器
-export function activeBookmorksContainer(groupId) {
-    console.log("activeBookmorksContainer groupId:", groupId);
+export function activeBookmarksContainer(groupId) {
     let bookmorksContainer = document.getElementById('tileContainer').getElementsByClassName('container');
+    console.log("activeBookmorksContainer groupId:", groupId, "bookmorksContainer", bookmorksContainer);
     Array.from(bookmorksContainer).forEach(item => {
         if (item.id === groupId) {
             item.style.display = "flex"
@@ -164,25 +152,6 @@ export function openSettings() {
 export function hideSettings() {
     DOM.sidenav.style.transform = "translateX(100%)";
     DOM.sidenav.style.boxShadow = "none";
-}
-
-// 显示提示
-export function showToast(message, hideDelay) {
-    if (!isToastVisible) {
-        DOM.toastContent.innerText = message;
-        DOM.toast.style.transform = "translateX(0%)";
-        isToastVisible = true;
-    }
-    if (hideDelay)
-        setTimeout(() => hideToast(), hideDelay);
-}
-// 隐藏提示
-export function hideToast() {
-    if (isToastVisible) {
-        DOM.toast.style.transform = "translateX(100%)";
-        DOM.toastContent.innerText = '';
-        isToastVisible = false;
-    }
 }
 
 // 抖动
@@ -297,6 +266,7 @@ function setDOM(settings) {
     DOM.showClockCheckbox.checked = settings.showClock;
     DOM.bookmarkMaxColsSelect.value = settings.maxCols;
     DOM.bookmarkSizeSelect.value = settings.bookmarkSize;
+    DOM.bookmarkMarginSelect.value = settings.bookmarkMargin;
     DOM.bookmarkRatioSelect.value = settings.dialRatio;
     DOM.defaultSortSelect.value = settings.defaultSort;
     DOM.addBookmarkBtnPositionSelect.value = settings.addBookmarkBtnPosition;
@@ -316,6 +286,7 @@ function bindImgPreviewDivEvents() {
         }
 
         DOM.backgroundColorContainer.style.display = "none";
+        DOM.previewContainer.style.display = 'flex';
         DOM.previewContainer.style.opacity = '1';
         DOM.switchesContainer.style.transform = "translateY(0)";
     }
@@ -329,21 +300,24 @@ function bindImgPreviewDivEvents() {
 
 // 设置背景图或背景颜色
 export function applyBackgroundChanged(wallPaperEnable, wallpaperSrc) {
-    console.log("applyWallpaperSrcChanged wallPaperEnable: ", wallPaperEnable);
-    console.log("applyWallpaperSrcChanged wallpaperSrc: ", wallpaperSrc?.length < 100 ? wallpaperSrc : wallpaperSrc?.substring(200, 20));
+    console.log("applyBackgroundChanged wallPaperEnable: ", wallPaperEnable);
+    console.log("applyBackgroundChanged wallpaperSrc: ", wallpaperSrc?.length < 100 ? wallpaperSrc : wallpaperSrc?.substring(200, 20));
     // 启用背景图并且上传了背景图
     if (wallPaperEnable && wallpaperSrc) {
         bindImgPreviewDivEvents();
 
         DOM.imgPreviewDiv.setAttribute('src', wallpaperSrc);
         DOM.imgPreviewDiv.style.display = 'block';
+        DOM.previewContainer.style.display = 'flex';
         DOM.previewContainer.style.opacity = '1';
     }
     else {
-        document.body.style.background = DOM.bgColorPicker.value;
         DOM.backgroundColorContainer.style.display = "flex";
+        DOM.previewContainer.style.display = 'none';
         DOM.previewContainer.style.opacity = '0';
         DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
+
+        document.body.style.background = DOM.bgColorPicker.value;
     }
 }
 
@@ -359,6 +333,7 @@ export function applyWallpaperEnableChanged(isWallpaperCheckboxChanged) {
             bindImgPreviewDivEvents();
 
             DOM.backgroundColorContainer.style.display = "none";
+            DOM.previewContainer.style.display = 'flex';
             DOM.previewContainer.style.opacity = '1';
             DOM.switchesContainer.style.transform = "translateY(0)";
 
@@ -371,6 +346,7 @@ export function applyWallpaperEnableChanged(isWallpaperCheckboxChanged) {
         // 3. 背景变为设定的背景色
         if (DOM.wallPaperEnableCheckbox.checked === false) {
             DOM.backgroundColorContainer.style.display = "flex";
+            DOM.previewContainer.style.display = 'none';
             DOM.previewContainer.style.opacity = '0';
             DOM.switchesContainer.style.transform = `translateY(-${DOM.previewContainer.offsetHeight}px)`;
 
@@ -381,62 +357,64 @@ export function applyWallpaperEnableChanged(isWallpaperCheckboxChanged) {
 
 // 修改书签相关 如： 大小、书签数、样式
 export function applyBookmarkRelatedChanged(settings) {
-    if (settings.bookmarkSize && settings.bookmarkSize !== "medium") {
-        let dialWidth, dialHeight, dialContentHeight;
-        switch (settings.bookmarkSize) {
-            case "large":
-                dialWidth = '256px';
-                dialHeight = settings.dialRatio === "square" ? '274px' : '162px';
-                dialContentHeight = settings.dialRatio === "square" ? '256px' : '144px';
-                break;
-            case "small":
-                dialWidth = '178px';
-                dialHeight = settings.dialRatio === "square" ? '196px' : '118px';
-                dialContentHeight = settings.dialRatio === "square" ? '178px' : '100px';
-                break;
-            case "x-small":
-                dialWidth = '130px';
-                dialHeight = settings.dialRatio === "square" ? '148px' : '100px';
-                dialContentHeight = settings.dialRatio === "square" ? '130px' : '82px';
-                break;
-            default:
-                dialWidth = '220px';
-                dialHeight = settings.dialRatio === "square" ? '238px' : '142px';
-                dialContentHeight = settings.dialRatio === "square" ? '220px' : '124px';
-        }
-        document.documentElement.style.setProperty('--dial-width', dialWidth);
-        document.documentElement.style.setProperty('--dial-height', dialHeight);
-        document.documentElement.style.setProperty('--dial-content-height', dialContentHeight);
-    } else {
-        document.documentElement.style.setProperty('--dial-width', '220px');
-        if (settings.dialRatio === "square") {
-            document.documentElement.style.setProperty('--dial-height', '238px');
-            document.documentElement.style.setProperty('--dial-content-height', '220px');
-        } else {
-            document.documentElement.style.setProperty('--dial-height', '142px');
-            document.documentElement.style.setProperty('--dial-content-height', '124px');
-        }
+    let bookmarkWidth, bookmarkHeight, bookmarkContentHeight, bookmarkMargin;
+
+    // 书签大小
+    switch (settings?.bookmarkSize) {
+        case "x-large":
+            bookmarkWidth = 280;
+            bookmarkHeight = settings.dialRatio === "square" ? '298px' : '175px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '280px' : '157px';
+            break;
+        case "large":
+            bookmarkWidth = 256;
+            bookmarkHeight = settings.dialRatio === "square" ? '274px' : '162px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '256px' : '144px';
+            break;
+        case "medium":
+            bookmarkWidth = 220;
+            bookmarkHeight = settings.dialRatio === "square" ? '238px' : '142px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '220px' : '124px';
+            break;
+        case "small":
+            bookmarkWidth = 178;
+            bookmarkHeight = settings.dialRatio === "square" ? '196px' : '118px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '178px' : '100px';
+            break;
+        case "x-small":
+            bookmarkWidth = 130;
+            bookmarkHeight = settings.dialRatio === "square" ? '148px' : '100px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '130px' : '82px';
+            break;
+        default:
+            bookmarkWidth = 220;
+            bookmarkHeight = settings.dialRatio === "square" ? '238px' : '142px';
+            bookmarkContentHeight = settings.dialRatio === "square" ? '220px' : '124px';
     }
+    document.documentElement.style.setProperty('--dial-width', bookmarkWidth + 'px');
+    document.documentElement.style.setProperty('--dial-height', bookmarkHeight);
+    document.documentElement.style.setProperty('--dial-content-height', bookmarkContentHeight);
+
+
+    // 书签间隔
+    switch (settings?.bookmarkMargin) {
+        case 'near':
+            bookmarkMargin = 7
+            break;
+        case 'middle':
+            bookmarkMargin = 11
+            break;
+        case 'far':
+            bookmarkMargin = 15
+            break;
+        default:
+            bookmarkMargin = 7
+    }
+    document.documentElement.style.setProperty('--dial-margin', bookmarkMargin + 'px');
+
+
     if (settings.maxCols && settings.maxCols !== "100") {
-        //todo cleanup - fixed values
-        let dialWidth = 220;
-        let dialMargin = 18 * 2; // 18px on each side
-
-        switch (settings.bookmarkSize) {
-            case "large":
-                dialWidth = 256;
-                break;
-            case "small":
-                dialWidth = 178;
-                break;
-            case "x-small":
-                dialWidth = 130;
-                break;
-            default:
-                dialWidth = 220;
-        }
-
-        const containerWidth = settings.maxCols * (dialWidth + dialMargin);
+        const containerWidth = settings.maxCols * (bookmarkWidth + bookmarkMargin);
         document.documentElement.style.setProperty('--columns', `${containerWidth}px`);
         layout();
     } else {
