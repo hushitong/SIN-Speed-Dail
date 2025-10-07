@@ -59,18 +59,11 @@ async function handleBookmarkChanged(info) {
 	let bookmarks = null
 	switch (changeType) {
 		case 'Add':
-			// bookmarks = await getBookmarks(groupId
 			await createBookmarkThumb(info);
 			break;
-		case 'Remove':
-			await refreshOpen();
-			return;
-		// case 'Edit':
-		// 	bookmarks = await chrome.bookmarks.get({id: info.id});
-		// 	break;
-		// case 'Move':
-		// 	bookmarks = await chrome.bookmarks.get({id: info.id});
-		// 	break;
+		// case 'Remove':
+		// 	await refreshOpen();
+		// 	return;
 		default:
 			console.warn(`Unexpected changeType received: '${changeType}'.`);
 			return;

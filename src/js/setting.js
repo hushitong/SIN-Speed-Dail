@@ -42,7 +42,7 @@ export async function saveSettings(settings, wallpaperSrc, isGetSettingFromDOM =
         console.log("wallpaperSrc saved after: ", wallpaperSrc.length < 100 ? wallpaperSrc : wallpaperSrc.substring(200, 20));
     }
 
-    console.log("settings before save: settings",settings);
+    console.log("settings before save: settings", settings);
     await chrome.storage.local.set(dataToSave)
         .then(() => {
             state.settings = settings;
@@ -160,16 +160,19 @@ export function importFromSD2(json, isMerge = false) {
             });
         });
 
+        origDials.sort((a, b) => (a.ts_created || 0) - (b.ts_created || 0));
+
         // 为每个 dial 生成书签，groupId 使用映射（找不到默认 home）
         origDials.forEach(d => {
             const mappedGroupId = groupIdMap[String(d.idgroup)] || 'home';
+            const position = newBookmarks.filter(item => item.groupId === mappedGroupId).length + 1;
             newBookmarks.push({
                 id: generateId(),
                 title: d.title,
                 url: d.url,
                 groupId: mappedGroupId,
                 visits: d.visits,
-                position: d.position,
+                position: position,
                 thumbnail: d.thumbnail,
                 createtime: d.ts_created
             });

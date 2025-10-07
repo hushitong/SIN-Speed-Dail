@@ -15,7 +15,8 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     // 获得 bookmarks 和 groups 数据
     state.data = await getData(['groups', 'bookmarks']);
     console.log("buildPages state.data", state.data, "selectedGroupId", selectedGroupId);
-    const groups = state.data.groups;
+    const groups = state.data.groups || [];
+    const bookmarks = state.data.bookmarks || [];
 
     // 如果没有任何分组，添加一个主页分组
     if (groups.length === 0) {
@@ -26,7 +27,7 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
         });
     }
     // 如果只有home分组然后没有书签，则显示初始设置界面
-    if (groups.length === 1 && state.data.bookmarks.length === 0) {
+    if (groups.length === 1 && bookmarks.length === 0) {
         DOM.addGroupButton.style.display = 'none';
         printNewSetupPage();
         return;
@@ -41,7 +42,7 @@ export async function buildGroupsAndBookmarksPages(selectedGroupId) {
     buildGroupsLinks(groups);
 
     // 根据当前选择的分组ID，显示对应的分组书签内容
-    const currentGroupBookmarks = state.data.bookmarks.filter(b => b.groupId === selectedGroupId);
+    const currentGroupBookmarks = bookmarks.filter(b => b.groupId === selectedGroupId);
     await buildBookmarksByGroupId(currentGroupBookmarks, selectedGroupId);
 
     // 激活被选择的分组，隐藏没被选择分组

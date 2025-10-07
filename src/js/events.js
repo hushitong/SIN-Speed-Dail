@@ -16,12 +16,13 @@ import {
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
     saveBookmark, buildBookmarksByGroupId,
-    quickCreateBookmark, removeBookmark, moveBookmark,
+    quickCreateBookmark, removeBookmark, moveBookmark, sortBookmarks,
     setBackgroundImages, refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
 import { createGroup, editGroup, removeGroup, moveGroup, activeGroup } from "./groups.js";
 import { state } from "./state.js"
 import Toast from './minitoast.js';
+import { getData, saveData } from "./data.js";
 
 let targetGroupName = null;
 let targetGroupLink = null;
@@ -70,7 +71,6 @@ export function initEvents() {
         }
     });
 
-    // todo: tidy this up
     window.addEventListener("click", e => {
         if (typeof e.target.className === 'string' && e.target.className.indexOf('settingsCtl') >= 0) {
             return;
@@ -81,7 +81,6 @@ export function initEvents() {
         e.preventDefault();
     });
 
-    // listen for menu item
     window.addEventListener("mousedown", e => {
         console.log("mousedown event target", e.target);
         hideMenus();
@@ -257,10 +256,15 @@ export function initEvents() {
     }
 
     // 书签默认排序方式
-    DOM.defaultSortSelect.oninput = function (e) {
+    DOM.defaultSortSelect.oninput = async function (e) {
         if (state.settings.defaultSort !== DOM.defaultSortSelect.value) {
-            processRefresh();
             saveSettings(state.settings);
+            state.settings.defaultSort = DOM.defaultSortSelect.value;
+            let data = await getData(['bookmarks']);
+            let SortedBookmarks = sortBookmarks(data.bookmarks, DOM.defaultSortSelect.value);
+            saveData({ bookmarks: SortedBookmarks });
+            state.data.bookmarks = SortedBookmarks;
+            buildBookmarksByGroupId(SortedBookmarks, state.currentGroupId);
         }
     }
 
@@ -487,15 +491,6 @@ export function initEvents() {
         }
     }
 
-    // 点击 导入/导出 按钮
-    DOM.importExportBtn.onclick = function () {
-        hideSettings();
-        DOM.importExportStatus.innerText = "";
-        DOM.exportBtn.classList.add('disabled');
-        // prepareExport();
-        modalShowEffect(DOM.importExportModalContent, DOM.importExportModal);
-    }
-
     DOM.helpBtn.onclick = function () {
         chrome.tabs.create({ url: helpUrl });
     }
@@ -511,6 +506,14 @@ export function initEvents() {
         filterDials('');
     });
 
+    // 点击 导入/导出 按钮
+    DOM.importExportBtn.onclick = function () {
+        hideSettings();
+        DOM.importExportStatus.innerText = "";
+        DOM.exportBtn.classList.add('disabled');
+        // prepareExport();
+        modalShowEffect(DOM.importExportModalContent, DOM.importExportModal);
+    }
     // 导入
     DOM.importFileLabel.onclick = function () {
         DOM.importFileInput.click();
@@ -539,7 +542,7 @@ export function initEvents() {
                     chrome.storage.local.clear().then(() => {
                         state.currentGroupId = state.homeGroup.id;
 
-                        return chrome.storage.local.set({
+                        chrome.storage.local.set({
                             groups: data.groups,
                             bookmarks: data.bookmarks,
                             settings: data.settings
@@ -551,11 +554,10 @@ export function initEvents() {
                         initSettings(data.settings, state.defaultWallpaperSrc);
                         console.log(state.currentGroupId, "=========================================", data.settings.currentGroupId)
                         buildGroupsAndBookmarksPages(data.settings.currentGroupId);
-                        // processRefresh({ currentGroupId: state.homeGroup.id });
-                        Toast.success("导入成功！");
+                        Toast.success("导入 Speed Dail 2 书签成功！");
                     }).catch(err => {
                         console.error(err);
-                        DOM.importExportStatus.innerText = "SD2 import error! Unable to save bookmarks.";
+                        Toast.error('SD2 import error! Unable to save bookmarks.')
                     });
                 }
             } else if (json.db) {

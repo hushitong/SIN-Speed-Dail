@@ -36,17 +36,37 @@ export function quickCreateBookmark() {
 export async function saveNewBookmark(groupId, url, title) {
     if (!url || !title) return;
 
-    const data = await getData(['groups', 'bookmarks']);
-    data.bookmarks = data.bookmarks || [];
+    const data = await getData(['groups', 'bookmarks', 'settings']);
     let isFirstBookmark = false;
-    if (data.bookmarks.length === 0)
+    if (!data?.bookmarks)
         isFirstBookmark = true;
 
     // 获取当前分组的最大位置
-    const groupBookmarks = data.bookmarks.filter(b => b.groupId === groupId);
-    const maxPosition = groupBookmarks.length > 0
-        ? Math.max(...groupBookmarks.map(b => b.position || 0))
+    const thisGroupBookmarks = data.bookmarks.filter(b => b.groupId === groupId);
+    const notThisGroupBookmarks = data.bookmarks.filter(b => b.groupId != groupId);
+    const maxPosition = thisGroupBookmarks.length > 0
+        ? Math.max(...thisGroupBookmarks.map(b => b.position || 1))
         : 0;
+    let position = 1
+    switch (data.settings.defaultSort) {
+        case "custom":
+            position = maxPosition + 1;
+            break;
+        case "visits":
+            position = maxPosition + 1;
+            break;
+        case "date_asc":
+            position = maxPosition + 1;
+            break;
+        case "date_desc":
+            thisGroupBookmarks.forEach((item, index) => {
+                item.position = index + 2;
+            });
+            position = 1;
+            break;
+        default:
+            position = maxPosition + 1;
+    }
 
     const newId = generateId();
     const newBookmark = {
@@ -54,16 +74,20 @@ export async function saveNewBookmark(groupId, url, title) {
         groupId: groupId,
         title: title,
         url: url,
-        position: maxPosition + 1,
+        position: position,
         thumbnail: null,
         visits: 0,
         createtime: Math.floor(Date.now() / 1000),
     };
-
-    data.bookmarks.push(newBookmark);
-    await saveData(data);
+    if (data.settings.defaultSort === "date_desc")
+        thisGroupBookmarks.unshift(newBookmark)
+    else
+        thisGroupBookmarks.push(newBookmark)
+    const mergedBookmarks = [...thisGroupBookmarks, ...notThisGroupBookmarks];
+    data.bookmarks = mergedBookmarks;
+    await saveData({ bookmarks: mergedBookmarks });
     state.data = data;
-    buildBookmarksByGroupId(data.bookmarks.filter(b => b.groupId === groupId), groupId);
+    buildBookmarksByGroupId(thisGroupBookmarks, groupId);
     activeBookmarksContainer(groupId);
     if (isFirstBookmark) {
         buildGroupsLinks(data.groups)
@@ -86,23 +110,6 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
 
     // 当该分组具有书签时，生成书签 DOM 节点
     if (bookmarks) {
-        switch (state.settings.defaultSort) {
-            case "custom":
-                bookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
-                break;
-            case "visits":
-                bookmarks.sort((a, b) => (b.visits || 0) - (a.visits || 0));
-                break;
-            case "date_ase":
-                bookmarks.sort((a, b) => (a.createtime || 0) - (b.createtime || 0));
-                break;
-            case "date_desc":
-                bookmarks.sort((a, b) => (b.createtime || 0) - (a.createtime || 0));
-                break;
-            default:
-                bookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
-        }
-
         let thumbIds = bookmarks.map(b => state.defaultThumbPrefix + b.id);
         let thumbnails = await chrome.storage.local.get(thumbIds);
         console.log("thumbnails fetched:", thumbnails);
@@ -133,7 +140,6 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
                 content.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
 
                 content.style.backgroundImage = thumbBg ? `url('${thumbData}'), ${thumbBg}` : '';
-                // content.style.backgroundColor = thumbBg ? '' : 'rgba(255, 255, 255, 0.5)';
 
                 let title = document.createElement('div');
                 title.classList.add('tile-title');
@@ -322,55 +328,45 @@ export async function moveBookmark(type, id, fromGroupId, toGroupId, oldIndex, n
                 const bookmarks = data.bookmarks;
                 const settings = data.settings;
                 const sameGroupBookmarks = bookmarks.filter(b => b.groupId === fromGroupId);
+                const notSameGroupBookmarks = bookmarks.filter(b => b.groupId !== fromGroupId);
 
-                switch (settings.defaultSort) {
-                    case "custom":
-                        sameGroupBookmarks.sort((a, b) => (a.position || 0) - (b.position || 0));
-                        break;
-                    case "visits":
-                        sameGroupBookmarks.sort((a, b) => (b.visits || 0) - (a.visits || 0));
-                        break;
-                    case "date_ase":
-                        sameGroupBookmarks.sort((a, b) => (a.createtime || 0) - (b.createtime || 0));
-                        break;
-                    case "date_desc":
-                        sameGroupBookmarks.sort((a, b) => (b.createtime || 0) - (a.createtime || 0));
-                        break;
-                    default:
-                        console.log("moveBookmark aborted: unknown sort type");
-                        return;
-                }
-
-                if (settings.addBookmarkBtnPosition === "first") {
-                    newIndex = Math.max(0, newIndex - 1);
-                    oldIndex = Math.max(0, oldIndex - 1);
-                }
-
-                const targetBookmark = sameGroupBookmarks[oldIndex];
-                if (targetBookmark.id !== id) {
-                    console.warn("moveBookmark: target not found", id);
-                    return;
-                }
-
-                // 从原位置移除，并插入到新位置
-                sameGroupBookmarks.splice(oldIndex, 1);
-                sameGroupBookmarks.splice(newIndex, 0, targetBookmark);
-
-                // 重新计算 position，从 1 开始
-                sameGroupBookmarks.forEach((b, index) => {
-                    b.position = index + 1;
-                });
+                // 由页面获得书签排序列表
+                // 抛弃使用 oldIndex, newIndex 方式
+                const targetDiv = document.getElementById(fromGroupId);
+                const aElements = targetDiv.querySelectorAll('a');
+                const idList = Array.from(aElements)
+                    .map(a => a.dataset.id)
+                    .filter(id => id !== undefined);
 
                 // 把修改同步回 bookmarks 全表
-                const updatedBookmarks = bookmarks.map(b => {
-                    return (b.groupId === fromGroupId)
-                        ? sameGroupBookmarks.find(sb => sb.id === b.id) || b
-                        : b;
+                // 1. 提取同组书签的ID集合（用于快速校验）
+                const sameGroupIds = new Set(sameGroupBookmarks.map(b => b.id));
+                // 2. 处理“idList有但sameGroupBookmarks没有”的情况：过滤idList中的无效ID
+                const validIdList = idList.filter(id =>
+                    typeof id === 'string' && id.trim() !== '' && sameGroupIds.has(id)
+                );
+                // 3. 根据有效ID列表生成基础排序的同组书签（设置position）
+                const baseUpdated = validIdList.map((id, index) => {
+                    const bookmark = sameGroupBookmarks.find(b => b.id === id);
+                    return { ...bookmark, position: index + 1 }; // 从1开始连续编号
                 });
+                // 4. 处理“idList没有但sameGroupBookmarks有”的情况：找出遗漏的书签
+                const missedBookmarks = sameGroupBookmarks.filter(b => !validIdList.includes(b.id));
+                // 5. 对遗漏的书签按原position排序（保留原有相对顺序），并追加到后面
+                const sortedMissed = missedBookmarks.sort((a, b) => (b.position || 0) - (a.position || 0));
+                // 6. 为遗漏的书签设置连续的position（接在baseUpdated后面）
+                const appendedMissed = sortedMissed.map((b, index) => ({
+                    ...b,
+                    position: baseUpdated.length + 1 + index // 确保position连续
+                }));
+                // 7. 合并基础排序和遗漏项，得到最终的同组更新书签
+                const updatedBookmarks = [...baseUpdated, ...appendedMissed];
 
+                const mergedBookmarks = [...updatedBookmarks, ...notSameGroupBookmarks];
                 settings.defaultSort = "custom";
-                await saveData({ settings: settings, bookmarks: updatedBookmarks }).then(() => {
+                await saveData({ settings: settings, bookmarks: mergedBookmarks }).then(() => {
                     buildBookmarksByGroupId(updatedBookmarks, fromGroupId);
+                    DOM.defaultSortSelect.value = 'custom'
                 });
 
                 console.log(`Bookmark ${id} moved from ${oldIndex} to ${newIndex}`);
@@ -386,21 +382,84 @@ export async function moveBookmark(type, id, fromGroupId, toGroupId, oldIndex, n
 // 删除书签
 export async function removeBookmark(id) {
     state.data = await getData();
-    let title = state.data.bookmarks.find(bookmark => bookmark.id === id)?.title;
-    
-    // 过滤掉要删除的书签
-    const updatedBookmarks = state.data.bookmarks.filter(bookmark => bookmark.id !== id);
 
-    // 保存更新后的书签数组
-    return new Promise((resolve) => {
-        chrome.storage.local.set({
-            bookmarks: updatedBookmarks
-        }, () => {
-            Toast.success(`成功移除书签，title：${title}`);
-            chrome.runtime.sendMessage({ target: 'background', type: 'handleBookmarkChanged', data: { groupId: state.currentGroupId, changeType: 'Remove' } });
-            resolve(true);
+    // 1. 找到目标书签及所在组（不存在则直接返回）
+    const targetBookmark = state.data.bookmarks.find(b => b.id === id);
+    if (!targetBookmark) {
+        Toast.error('未找到该书签');
+        return;
+    }
+    const { groupId: targetGroupId, title = '未知标题' } = targetBookmark;
+
+    // 2. 拆分为同组和不同组书签
+    const sameGroupBookmarks = state.data.bookmarks.filter(b => b.groupId === targetGroupId);
+    const notSameGroupBookmarks = state.data.bookmarks.filter(b => b.groupId !== targetGroupId);
+
+    // 3. 处理同组书签：删除目标书签 → 按原position排序 → 重新分配position
+    const updatedBookmarks = sameGroupBookmarks
+        .filter(b => b.id !== id) // 移除目标书签
+        .sort((a, b) => (a.position || 0) - (b.position || 0)) // 按原顺序排序
+        .map((b, index) => ({ ...b, position: index + 1 })); // 重新编号（1开始连续）
+
+    // 4. 合并同组和不同组书签
+    const mergedBookmarks = [...updatedBookmarks, ...notSameGroupBookmarks];
+
+    // 5. 保存数据并更新DOM
+    try {
+        state.data.bookmarks = mergedBookmarks;
+        await saveData({ bookmarks: mergedBookmarks });
+        // document.querySelector(`[data-id="${id}"]`)?.remove();
+        buildBookmarksByGroupId(updatedBookmarks, targetGroupId);
+        Toast.success(`成功移除书签：${title}`);
+    } catch (error) {
+        Toast.error('移除书签失败，请重试');
+        console.error('删除出错：', error);
+    }
+}
+
+// 排序 bookmarks
+export function sortBookmarks(bookmarks, sortBy = 'visits') {
+    // 1. 按groupId分组
+    const groups = {};
+    bookmarks.forEach(item => {
+        if (!groups[item.groupId]) {
+            groups[item.groupId] = [];
+        }
+        groups[item.groupId].push(item);
+    });
+
+    // 2. 对每个分组进行排序
+    Object.keys(groups).forEach(groupId => {
+        switch (sortBy) {
+            case "custom":
+                groups[groupId].sort((a, b) => (a.position || 0) - (b.position || 0));
+                break;
+            case "visits":
+                groups[groupId].sort((a, b) => (b.visits || 0) - (a.visits || 0));
+                break;
+            case "date_asc":
+                groups[groupId].sort((a, b) => (a.createtime || 0) - (b.createtime || 0));
+                break;
+            case "date_desc":
+                groups[groupId].sort((a, b) => (b.createtime || 0) - (a.createtime || 0));
+                break;
+            default:
+                groups[groupId].sort((a, b) => (a.position || 0) - (b.position || 0));
+        }
+
+        // 3. 重新设置position（从1开始）
+        groups[groupId].forEach((item, index) => {
+            item.position = index + 1;
         });
     });
+
+    // 4. 将分组数据合并回数组
+    const result = [];
+    Object.keys(groups).forEach(groupId => {
+        result.push(...groups[groupId]);
+    });
+
+    return result;
 }
 
 
