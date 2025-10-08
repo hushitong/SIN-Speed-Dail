@@ -219,6 +219,7 @@ h1 {
     margin-left: 30px;
     display: flex;
     align-items: baseline;
+    box-sizing: border-box;
 }
 
 #groups {
@@ -244,8 +245,8 @@ h1 {
 
 .groupTitle {
     display: inline-block;
-    opacity: 0.85;
-    font-size: 16px;
+    opacity: 0.6;
+    font-size: 17px;
     font-weight: bold;
     transition: padding 160ms ease, outline 160ms ease;
     border-bottom: 2px solid transparent;
@@ -262,11 +263,8 @@ h1 {
 
 .activegroup {
     opacity: 1;
-    font-size: 20px;
-    font-weight: 600;
     color: #fff;
-    background: rgba(0, 120, 255, 0.15);
-    border-radius: 6px;
+    border-bottom-color: #1100ff;
 }
 
 #deletegroupModalName {
@@ -282,12 +280,18 @@ h1 {
     /*transition: width 240ms ease-in-out, height 300ms ease-in-out;*/
 }
 
+.tile:not(.createDial) {
+    background-color: hsl(0, 0%, 100%);
+}
+
 .tile-main {
     width: 100%;
     height: 100%;
     z-index: 0;
     border-radius: inherit;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .tile-content {
@@ -304,26 +308,14 @@ h1 {
 .tile-title {
     position: relative;
     z-index: 0;
-    /* 建立层叠上下文 */
+    color: #000000;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border-radius: inherit;
     padding: 3px 10px;
-    border-radius: inherit;
-}
-
-.tile-title::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    /* 等价于 top/right/bottom/left 全是 0 */
-    background-color: #999;
-    opacity: 0.2;
-    /* 背景透明度 */
-    border-radius: inherit;
-    z-index: -1;
-    /* 保证背景在文字后面 */
+    box-sizing: border-box;
 }
 
 .tile-visit {
@@ -765,7 +757,7 @@ input:focus+.inputBorder,
     width: 24px;
     position: absolute;
     right: 20px;
-    top: 16px;
+    top: 10px;
     fill: var(--color);
     filter: opacity(0.7);
     transition: opacity 160ms ease;
@@ -829,7 +821,7 @@ input:focus+.inputBorder,
     position: absolute;
     display: var(--clock);
     right: 60px;
-    top: 12px;
+    top: 6px;
     color: var(--color);
     opacity: 0.85;
     font-size: x-large;
@@ -878,10 +870,21 @@ input:focus+.inputBorder,
 }
 
 /* 类型样式 */
-.toast-info { background-color: #2d8cf0; }
-.toast-success { background-color: #19be6b; }
-.toast-error { background-color: #e54d42; }
-.toast-stats { background-color: #909399; }
+.toast-info {
+    background-color: #2d8cf0;
+}
+
+.toast-success {
+    background-color: #19be6b;
+}
+
+.toast-error {
+    background-color: #e54d42;
+}
+
+.toast-stats {
+    background-color: #909399;
+}
 
 /* 关闭按钮 */
 .toast-close {
@@ -889,13 +892,16 @@ input:focus+.inputBorder,
     cursor: pointer;
     background: none;
     border: none;
-    color: rgba(255,255,255,0.8);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 16px;
     line-height: 1;
     padding: 0;
     transition: opacity 0.2s ease;
 }
-.toast-close:hover { opacity: 0.6; }
+
+.toast-close:hover {
+    opacity: 0.6;
+}
 
 /* 进度条 */
 .toast-progress {
@@ -911,5 +917,7 @@ input:focus+.inputBorder,
 }
 
 /* 鼠标悬停高亮 */
-.toast:hover { filter: brightness(1.1); cursor: pointer; }
-
+.toast:hover {
+    filter: brightness(1.1);
+    cursor: pointer;
+}

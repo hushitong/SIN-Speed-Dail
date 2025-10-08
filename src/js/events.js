@@ -617,37 +617,55 @@ function handleMessages(message) {
     if (message.target !== 'newtab') {
         return
     }
+    const msgDelay = 30000;
 
-    if (message.data.refresh) {
-        // hideToast();
-        processRefresh();
-    } else if (message.data.reloadGroups) {
-        // hideToast();
-        processRefresh({ groupsOnly: true });
-    } else if (message.type === 'thumbBatch') {
-        // lets update the backgroundImage with the thumbnail for each element using its id (parentId + id)
-        // data.thumbs is an array of objects containing id, parentId, thumbnail and bgcolor
-        //console.log(message.data);
-        // todo: background not working?
-
-        // Data example:
-        // target: 'newtab',
-        // type: 'thumbBatch',
-        // data: [{
-        //     id,
-        //     groupId: groupId,
-        //     url,
-        //     thumbnail: images[0],
-        //     bgColor
-        // }]
-        setBackgroundImages(message.data);
-        // hideToast();
-    } else if (message.type === 'GetThumbErr') {
-        // error getting thumbnail for url
-        // data is an array of objects containing id, groupId, url and err
-        console.log("Error getting thumbnail for url:", message.data);
-        // hideToast();
-        Toast.error("Error getting thumbnail for url: " + message.data[0].url + " : " + message.data[0].err);
+    if (message.data) {
+        if (message.data.refresh) {
+            processRefresh();
+        } else if (message.data.reloadGroups) {
+            processRefresh({ groupsOnly: true });
+        } else if (message.type === 'ThumbProgress') {
+            console.log("ThumbProgress message.data", message.data);
+            if (message.data.status === 'start')
+                Toast.info(`开始刷新缩略图，共${message.data.total}个`, msgDelay)
+            else if (message.data.status === 'success')
+                Toast.info(`缩略图获取成功 其标题：${message.data.bookmark} 当前${message.data.current} 成功${message.data.success} 失败${message.data.failed}`, msgDelay)
+            else if (message.data.status === 'failed')
+                Toast.error(`缩略图获取失败 其标题：${message.data.bookmark} 当前${message.data.current} 成功${message.data.success} 失败${message.data.failed}`, msgDelay)
+            else if (message.data.status === 'batch_failed')
+                Toast.error(`缩略图获取失败 batch_failed 当前${message.data.current} 成功${message.data.success} 失败${message.data.failed}`, msgDelay)
+            else if (message.data.status === 'initial_complete')
+                Toast.info(`所有缩略图获取完成 初次 成功${message.data.success} 失败${message.data.failed}`, msgDelay)
+            else if (message.data.status === 'complete')
+                Toast.info(`所有缩略图获取完成 All 成功${message.data.success} 失败${message.data.failed}`, msgDelay)
+            else if (message.data.status === 'retry_start')
+                Toast.info(`缩略图获取失败重试开始 需重试个数${message.data.retryCount}个`, msgDelay)
+            else if (message.data.status === 'retry_success')
+                Toast.info(`重试：缩略图获取成功 其标题：${message.data.bookmark}`, msgDelay)
+            else if (message.data.status === 'retry_failed')
+                Toast.error(`重试：缩略图获取失败 不再进行重试 其标题：${message.data.bookmark}`, msgDelay)
+            else if (message.data.status === 'retry_complete')
+                Toast.info(`重试完成: ${message.data.retrySuccess} 成功, ${message.data.failed} 仍然失败`, msgDelay)
+        }
+        else if (message.type === 'thumbUpdateSuccess') {
+            // Data example:
+            // target: 'newtab',
+            // type: 'thumbBatch',
+            // data: [{
+            //     id,
+            //     groupId: groupId,
+            //     url,
+            //     thumbnail: images[0],
+            //     bgColor
+            // }]
+            Toast.info(`缩略图获取成功`, msgDelay)
+            setBackgroundImages(message.data);
+            // hideToast();
+        } else if (message.type === 'thumbUpdateErr') {
+            Toast.error("获取缩略图失败 url: " + message.data.url + " 错误信息: " + message.data.err, msgDelay);
+        }
+    }else{
+        Toast.error("message.data 内容为空",msgDelay);
     }
 }
 

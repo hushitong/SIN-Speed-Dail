@@ -81,7 +81,7 @@ async function createBookmarkThumb(info) {
 	const thumbData = await chrome.storage.local.get(defaultThumbPrefix + id);
 	console.log("org thumbData:", thumbData);
 
-	getThumbnails(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false, forcePageReload: false });
+	getThumbnailAndSendMsg(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false, forcePageReload: false });
 	// getThumbnails(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false, forcePageReload: true });
 }
 
@@ -140,15 +140,22 @@ async function getBookmarks(groupId) {
 }
 
 
-// MESSAGE HANDLERS //
+// 刷新书签的缩略图
 function handleManualRefresh(data) {
 	if (data.url && (data.url.startsWith('https://') || data.url.startsWith('http://'))) {
-		chrome.storage.local.remove(data.url).then(() => {
-			getThumbnails(data.url, data.id, data.parentId, { quickRefresh: true, forceScreenshot: true, forcePageReload: false }).then(() => {
-				//refreshOpen()
-			})
-		})
-	}
+		getThumbnailAndSendMsg(data.url, data.id, data.parentId, { quickRefresh: true, forceScreenshot: true, forcePageReload: false }).then(() =>
+			chrome.storage.local.remove(defaultThumbPrefix + data.id)
+		)
+	};
+}
+
+
+// 辅助函数，发送进度到前端（target: 'newtab'，复用你的 sendMessage 风格）
+function sendProgressToFrontend(msg) {
+	chrome.runtime.sendMessage({
+		target: 'newtab',
+		...msg  // type 和 data
+	}).catch(err => console.error('Send progress error:', err));
 }
 
 // 刷新当前分组所有书签的缩略图
@@ -159,41 +166,132 @@ async function handleRefreshAllThumbs(data) {
 			console.log(err);
 		});
 	}
-	refreshBatch(data.bookmarks);
 
-	async function refreshBatch(bookmarks, index = 0, retries = 2) {
-		const batchSize = 3;
-		const delay = 10000;
+	const total = data.bookmarks.length;
+	let progress = { current: 0, total, success: 0, failed: 0, errors: [] };
+	// 发送开始信号给前端
+	sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'start' } });
+
+	refreshBatch(data.bookmarks, progress);
+
+	// 初次进行处理，没有重试机制
+	async function refreshBatch(bookmarks, progress, index = 0) {
+		const batchSize = 2;
 		const batch = bookmarks.slice(index, index + batchSize);
 
 		if (batch.length) {
-			try {
-				await Promise.all(batch.map(bookmark => getThumbnails(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false })));
-				// todo show progress in UI
-				// todo: we might need to refactor this to promises or timers so the worker doesnt kill the process with a batch scheduled
-				setTimeout(() => refreshBatch(bookmarks, index + batchSize, retries), delay);
-			} catch (err) {
-				console.log(err);
-				if (retries > 0) {
-					//console.log(`Retrying batch at index ${index}...`);
-					setTimeout(() => refreshBatch(bookmarks, index, retries - 1), delay);
+			// 用 Promise.allSettled，确保总是 resolve 但可检查失败
+			const settledResults = await Promise.allSettled(batch.map(async (bookmark) => {
+				await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false });
+				return bookmark.id;
+			}));
+
+			// 处理每个结果，更新 progress
+			let batchFailedCount = 0;
+			settledResults.forEach((result, i) => {
+				const bookmark = batch[i];
+				if (result.status === 'fulfilled') {
+					// 成功：更新计数 + 发送 ThumbSuccess
+					progress.success++;
+					progress.current++;
+					sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'success', bookmark: bookmark.title } });
 				} else {
-					//console.log(`Failed to refresh batch at index ${index} after multiple attempts.`);
-					setTimeout(() => refreshBatch(bookmarks, index + batchSize, retries), delay);
+					const singleErr = result.reason;
+					progress.failed++;
+					progress.current++;
+					progress.errors.push({ id: bookmark.id, url: bookmark.url, err: singleErr.message, bookmark });
+					sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'failed', bookmark: bookmark.title } });
+					batchFailedCount++;
+				}
+			});
+			refreshBatch(bookmarks, progress, index + batchSize);
+		} else {
+			// 所有初次 batch 结束时发送完成信号（初次阶段）
+			sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'initial_complete' } });
+			console.log(`Initial refresh all thumbs completed: ${progress.success} success, ${progress.failed} failed`);
+
+			// 如果有错误，触发重试
+			if (progress.errors.length > 0) {
+				refreshBatchRetry(progress);
+			} else {
+				sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'complete' } });
+			}
+		}
+	}
+	// 重试获取缩略图有错误的书签
+	async function refreshBatchRetry(progress) {
+		const delay = 5000;  // 重试延迟
+		let retryErrors = [];  // 收集最终未修复的错误
+		let retrySuccess = 0;
+
+		// 发送重试开始信号
+		sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'retry_start', retryCount: progress.errors.length } });
+
+		// 逐个处理每个错误 bookmark（串行，避免并发问题）
+		for (let errorItem of progress.errors) {
+			const bookmark = errorItem.bookmark;
+			let retryAttempts = 2;
+
+			while (retryAttempts > 0) {
+				try {
+					await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false });
+
+					progress.success++;
+					progress.failed--;
+					retrySuccess++;
+					sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'retry_success', bookmark: bookmark.title } });
+
+					// 从 errors 中移除这个（可选，保持 records 完整或清理）
+					// progress.errors = progress.errors.filter(e => e.id !== bookmark.id);
+
+					break;  // 成功，跳出 while
+				} catch (retryErr) {
+					console.log(`Retry failed for ${bookmark.id}:`, retryErr.message);
+					retryAttempts--;
+					if (retryAttempts > 0) {
+						await new Promise(resolve => setTimeout(resolve, delay));
+					} else {
+						// 最终失败：保留原错误记录
+						retryErrors.push(errorItem);
+						sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'retry_failed', bookmark: bookmark.title } });
+					}
 				}
 			}
-		} else {
-			//refreshOpen(); // not needed here it happens when thumbnails are saved
 		}
+
+		progress.errors = retryErrors;
+		sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'retry_complete', retrySuccess } });
+		console.log(`Retry completed: ${retrySuccess} recovered, ${progress.errors.length} still failed`);
+	}
+}
+// 调用 getThumbnail，然后只处理 newtab 消息
+async function getThumbnailAndSendMsg(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
+	console.log("bg getThumbnails", url, id, groupId, options);
+
+	try {
+		// 调用核心函数（包含 offscreen）
+		await getThumbnail(url, id, groupId, options);
+
+		// 只处理：发送 ThumbSuccess 到 newtab（原有逻辑）
+		chrome.runtime.sendMessage({
+			target: 'newtab',
+			type: 'ThumbSuccess',
+			data: { id, groupId, url }
+		}).catch(err => console.error('Send success error:', err));
+	} catch (err) {
+		console.log("getThumbnails err:", err);
+		sendProgressToFrontend({ type: 'thumbUpdateErr', data: { url, err: err.message } });
+
+		// throw err;
 	}
 }
 // 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
-async function getThumbnails(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
-	console.log("bg getThumbnails", url, id, groupId, options);
+async function getThumbnail(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
+	console.log("bg getThumbnailsWithoutSendMsg", url, id, groupId, options);
 
 	if (!url || !id) {
-		console.log("getThumbnails: missing url or id")
-		return
+		console.log("getThumbnailsWithoutSendMsg: missing url or id")
+		throw new Error("Missing url or id");
 	}
 
 	let screenshot = null;
@@ -201,9 +299,9 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 		screenshot = await fetchScreenshot(url);
 		console.log(`bg url:${url} get screenshot length:`, screenshot ? screenshot.length : 0);
 
-		// bg 不能操作 dom，只能委托给 offscreen 做
+		// 新增：offscreen 处理
 		await setupOffscreenDocument('offscreen.html');
-		chrome.runtime.sendMessage({
+		const offscreenResponse = await chrome.runtime.sendMessage({
 			target: 'offscreen',
 			data: {
 				url,
@@ -213,29 +311,14 @@ async function getThumbnails(url, id, groupId, options = { quickRefresh: false, 
 				quickRefresh: options.quickRefresh,
 				forcePageReload: options.forcePageReload,
 			}
-		}).then(response => {
-			console.log('offscreen response:', response);
-		}).catch(err => {
-			console.error('getThumbnails SendMessage to offscreen error:', err);
-		});;
-	}
-	catch (err) {
-		console.log("getThumbnails err:", err);
-		chrome.runtime.sendMessage({
-			target: 'newtab',
-			type: 'GetThumbErr',
-			data: [{
-				id,
-				groupId: groupId,
-				url,
-				err: err.message
-			}]
-		}).then(response => {
-			console.log('newtab response:', response);
-		}).catch(err => {
-			console.error('SendMessage error:', err);
 		});
-		// todo：告知用户
+		console.log('offscreen response:', offscreenResponse);
+
+		// 返回 offscreen 结果，供调用方进一步处理
+		return { id, groupId, url, response: offscreenResponse };
+	} catch (err) {
+		console.log("getThumbnailsWithoutSendMsg err:", err);
+		throw err;  // 抛出，让外层统一处理（包括 newtab 消息）
 	}
 }
 
@@ -311,8 +394,7 @@ async function createBookmarkNotFromNewtab(from, tab) {
 		}
 	});
 
-	await getThumbnails(tab.url, newId, groupId, { quickRefresh: false, forceScreenshot: true, forcePageReload: false })
-
+	await getThumbnailAndSendMsg(tab.url, newId, groupId, { quickRefresh: false, forceScreenshot: true, forcePageReload: false })
 
 	// 生成唯一ID
 	function generateId() {
@@ -443,10 +525,9 @@ async function handleOffscreenFetchDone(data, forcePageReload) {
 			// we have new sites, reload the page
 			refreshOpen();
 		} else {
-			// just update existing images
 			chrome.runtime.sendMessage({
 				target: 'newtab',
-				type: 'thumbBatch',
+				type: 'thumbUpdateSuccess',
 				data: [{
 					id,
 					groupId: groupId,
@@ -570,85 +651,3 @@ async function fetchScreenshot(url) {
 		}
 	});
 }
-
-// async function fetchScreenshot(url) {
-// 	return new Promise((resolve, reject) => {
-// 		try {
-// 			// 先查询当前窗口和当前活跃标签，以便稍后恢复
-// 			chrome.windows.getCurrent({ populate: true }, (currentWindow) => {
-// 				if (chrome.runtime.lastError) {
-// 					return reject(chrome.runtime.lastError || new Error("Failed to get current window"));
-// 				}
-
-// 				const windowId = currentWindow.id;
-// 				const previousActiveTab = currentWindow.tabs.find(tab => tab.active);
-
-// 				// 在当前窗口创建一个后台标签（active: false）
-// 				chrome.tabs.create({ url: url, active: false, windowId: windowId }, (newTab) => {
-// 					if (chrome.runtime.lastError) {
-// 						return reject(chrome.runtime.lastError || new Error("Failed to create tab"));
-// 					}
-
-// 					const tabId = newTab.id;
-
-// 					let timeoutId = setTimeout(() => {
-// 						chrome.tabs.onUpdated.removeListener(onUpdated);
-// 						chrome.tabs.remove(tabId);
-// 						reject(new Error("Timeout: Page took too long to load"));
-// 					}, 10000); // 10 秒超时
-
-// 					function onUpdated(updatedTabId, changeInfo) {
-// 						if (updatedTabId === tabId && changeInfo.status === 'complete') {
-// 							clearTimeout(timeoutId);
-// 							chrome.tabs.onUpdated.removeListener(onUpdated);
-
-// 							// 检查是否被阻塞
-// 							chrome.tabs.get(tabId, (tab) => {
-// 								if (chrome.runtime.lastError) {
-// 									chrome.tabs.remove(tabId);
-// 									return reject(chrome.runtime.lastError);
-// 								}
-
-// 								const finalUrl = tab.url;
-// 								if (finalUrl.startsWith('extension://') || finalUrl.includes('document-blocked.html')) {
-// 									chrome.tabs.remove(tabId);
-// 									return reject(new Error("Page blocked by extension (e.g., ad blocker)"));
-// 								}
-
-// 								// 临时激活该标签以确保可见并捕获截图
-// 								chrome.tabs.update(tabId, { active: true }, () => {
-// 									if (chrome.runtime.lastError) {
-// 										chrome.tabs.remove(tabId);
-// 										return reject(chrome.runtime.lastError);
-// 									}
-
-// 									// 捕获截图
-// 									chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
-// 										const captureError = chrome.runtime.lastError;
-
-// 										// 无论成功与否，都关闭新标签并恢复原活跃标签
-// 										chrome.tabs.remove(tabId, () => {
-// 											if (previousActiveTab) {
-// 												chrome.tabs.update(previousActiveTab.id, { active: true });
-// 											}
-// 										});
-
-// 										if (captureError || !dataUrl) {
-// 											reject(captureError || new Error("captureVisibleTab failed"));
-// 										} else {
-// 											resolve(dataUrl);
-// 										}
-// 									});
-// 								});
-// 							});
-// 						}
-// 					}
-
-// 					chrome.tabs.onUpdated.addListener(onUpdated);
-// 				});
-// 			});
-// 		} catch (err) {
-// 			reject(err);
-// 		}
-// 	});
-// }
