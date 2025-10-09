@@ -567,19 +567,20 @@ function batchApplyImages(elements) {
 // 修改书签
 export function editBookmark() {
     let id = state.targetTileId.split('-')[1];
-    // todo: cleanup this abomination when im not on drugs
-    let title = DOM.modalTitle.value;
-    let url = state.targetTileHref;
+    let orgTitle = state.targetTileTitle;
+    let newTitle = DOM.modalTitle.value;
+    let orgUrl = state.targetTileHref;
     let newUrl = rectifyUrl(DOM.modalURL.value.trim());
     let selectedImageSrc = null;
     let thumbIndex = 0;
     let imageNodes = document.getElementsByClassName('fc-slide');
     let bgColor = null;
     let colorPickerColor = DOM.modalBgColorPickerInput.value;
+    let thumbId = state.defaultThumbPrefix + id;
 
     let customCarousel = document.getElementById('customCarousel');
-    console.log("saveBookmarkSettings", id, title, url, newUrl, imageNodes, customCarousel, colorPickerColor);
-    if (customCarousel) {
+    console.log("saveBookmarkSettings", id, newTitle, orgUrl, newUrl, imageNodes, customCarousel, colorPickerColor);
+    if (customCarousel) {   // 上传了图片时
         selectedImageSrc = customCarousel.children[0].src;
         bgColor = getBgColor(customCarousel.children[0]);
         if (colorPickerColor && colorPickerColor !== rgbToHex(bgColor)) {
@@ -589,22 +590,20 @@ export function editBookmark() {
             bgColor = rgbaToCssGradient(bgColor);
         }
         state.targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
-        //targetNode.children[0].children[0].style.backgroundColor = bgColor;
-        chrome.storage.local.get(url)
+        chrome.storage.local.get(thumbId)
             .then(result => {
                 let thumbnails = [];
-                if (result[url]) {
-                    thumbnails = result[url].thumbnails;
+                if (result[thumbId]) {
+                    thumbnails = result[thumbId].thumbnails;
                     thumbnails.push(selectedImageSrc);
                     thumbIndex = thumbnails.indexOf(selectedImageSrc);
                 } else {
                     thumbnails.push(selectedImageSrc);
                     thumbIndex = 0;
                 }
-                chrome.storage.local.set({ [state.defaultThumbPrefix + id]: { thumbnails, thumbIndex, bgColor } }).then(result => {
-                    //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
-                    if (title !== state.targetTileTitle) {
-                        updateTitle()
+                chrome.storage.local.set({ [thumbId]: { thumbnails, thumbIndex, bgColor } }).then(result => {
+                    if (orgTitle !== newTitle || orgUrl != newUrl) {
+                        updateBookmark(id, newTitle, newUrl);
                     }
                 });
             });
@@ -627,66 +626,54 @@ export function editBookmark() {
                     bgColor = rgbaToCssGradient(bgColor);
                 }
 
-                // update tile
                 state.targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
-                //targetNode.children[0].children[0].style.backgroundColor = bgColor;
                 break;
             }
         }
 
-        chrome.storage.local.get(url)
+        // 查看是否存在该书签缩略图
+        chrome.storage.local.get(thumbId)
             .then(result => {
-                if (result[url]) {
-                    let thumbnails = result[url].thumbnails;
+                if (result[thumbId]) {
+                    let thumbnails = result[thumbId].thumbnails;
                     thumbIndex = thumbnails.indexOf(selectedImageSrc);
                     if (thumbIndex >= 0) {
                         chrome.storage.local.set({ [newUrl]: { thumbnails, thumbIndex, bgColor } }).then(result => {
-                            //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
-                            if (title !== state.targetTileTitle || url !== newUrl) {
-                                updateTitle()
+                            if (newTitle !== state.targetTileTitle || orgUrl !== newUrl) {
+                                updateBookmark(id, newTitle, newUrl);
                             }
                         });
                     } else {
-                        if (title !== state.targetTileTitle || url !== newUrl) {
-                            updateTitle()
+                        if (newTitle !== state.targetTileTitle || orgUrl !== newUrl) {
+                            updateBookmark(id, newTitle, newUrl);
                         }
                     }
                 } else {
-                    if (title !== state.targetTileTitle || url !== newUrl) {
-                        updateTitle()
+                    if (newTitle !== state.targetTileTitle || orgUrl !== newUrl) {
+                        updateBookmark(id, newTitle, newUrl);
                     }
                 }
             });
     }
 
-    // find image index
-    function updateTitle() {
-        // allow ui to respond immediately while bookmark updated
-        //targetNode.children[0].children[1].textContent = title;
-        // sortable ids changed so rewrite to storage
-        //let order = sortable.toArray();
-        //chrome.storage.local.set({"sort":order});
-        // todo: temp hack to match all until we start using bookmark ids
-        chrome.bookmarks.search({ url })
-            .then(bookmarks => {
-                if (bookmarks.length <= 1 && (url !== newUrl)) {
-                    // cleanup unused thumbnails
-                    chrome.storage.local.remove(url)
-                }
-                for (let bookmark of bookmarks) {
-                    let currentParent = currentGroup ? currentGroup : selectedGroupId
-                    if (bookmark.parentId === currentParent) {
-                        chrome.bookmarks.update(bookmark.id, {
-                            title,
-                            url: newUrl
-                        });
-                    }
+    async function updateBookmark(id, title, url) {
+        const data = await getData(['bookmarks']);
+        const bookmark = data.bookmarks.find(b => b.id === id);
+        if (bookmark) {
+            bookmark.title = title
+            bookmark.url = url
 
-                    if (url !== newUrl && toastContent.innerText === '') {
-                        Toast.info(' Capturing images...')
-                    }
+            saveData({ bookmarks: data.bookmarks }).then(() => {
+                const bookmarkTile = document.querySelectorAll(`[id="${state.currentGroupId}"] > [data-id="${id}"]`)[0];
+                if (bookmarkTile) {
+                    bookmarkTile.href = url;
+                    const tileTitleDiv = bookmarkTile.querySelector('.tile-main > .tile-title');
+                    if (tileTitleDiv) tileTitleDiv.textContent = title;
                 }
-            })
+            });
+        } else {
+            Toast.error("原书签已被删除，修改失败");
+        }
     }
 
     hideModals();

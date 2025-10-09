@@ -199,7 +199,10 @@ export function initEvents() {
         if (handleCreateBookmarkEnter())
             quickCreateBookmark();
     });
-    DOM.editBookmarkModalSave.addEventListener("click", editBookmark);
+    DOM.editBookmarkModalSave.addEventListener("click", e => {
+        if (handleEditBookmarkEnter())
+            editBookmark();
+    });
     DOM.addGroupButton.addEventListener("click", addGroupBtn);
     DOM.createGroupModalSave.addEventListener("click", createGroup);
     DOM.editGroupModalSave.addEventListener("click", editGroup);
@@ -244,15 +247,30 @@ export function initEvents() {
     DOM.modalTitle.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            editBookmark();
+            if (handleEditBookmarkEnter())
+                editBookmark();
         }
     });
     DOM.modalURL.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            editBookmark();
+            if (handleEditBookmarkEnter())
+                editBookmark();
         }
     });
+    function handleEditBookmarkEnter() {
+        if (DOM.modalTitle.value.trim() === '') {
+            DOM.modalTitle.value = ''
+            DOM.modalTitle.focus();
+            return false;
+        }
+        if (DOM.modalURL.value.trim() === '') {
+            DOM.modalURL.value = ''
+            DOM.modalURL.focus();
+            return false;
+        }
+        return true;
+    }
 
     // 书签形状
     DOM.bookmarkRatioSelect.oninput = function (e) {
