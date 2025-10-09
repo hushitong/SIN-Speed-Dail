@@ -15,7 +15,7 @@ import {
 } from "./ui.js";
 import { addGroupBtn, editBookmarkModal, addImage, modalShowEffect, buildCreateBookmarkModal, hideModals } from "./modals.js"
 import {
-    saveBookmark, buildBookmarksByGroupId,
+    editBookmark, buildBookmarksByGroupId,
     quickCreateBookmark, removeBookmark, moveBookmark, sortBookmarks,
     setBackgroundImages, refreshThumbnails, refreshAllThumbnails
 } from "./bookmarks.js";
@@ -43,7 +43,7 @@ export function initEvents() {
 
     // 替代右键菜单
     document.addEventListener("contextmenu", function (e) {
-        if (e.target.type === 'text' && (e.target.id === 'modalTitle' || e.target.id === 'modalURL' || e.target.id === 'modalImageURLInput' || e.target.id === 'createDialModalURL')) {
+        if (e.target.type === 'text' && (e.target.id === 'modalTitle' || e.target.id === 'modalURL' || e.target.id === 'modalImageURLInput' || e.target.id === 'createBookmarkURL' || e.target.id === 'createBookmarkTitle')) {
             return;
         }
         e.preventDefault();
@@ -195,8 +195,11 @@ export function initEvents() {
     // 窗口大小调整
     window.addEventListener('resize', onResize);
 
-    DOM.createBookmarkModalSave.addEventListener("click", quickCreateBookmark);
-    DOM.editBookmarkModalSave.addEventListener("click", saveBookmark);
+    DOM.createBookmarkModalSave.addEventListener("click", e => {
+        if (handleCreateBookmarkEnter())
+            quickCreateBookmark();
+    });
+    DOM.editBookmarkModalSave.addEventListener("click", editBookmark);
     DOM.addGroupButton.addEventListener("click", addGroupBtn);
     DOM.createGroupModalSave.addEventListener("click", createGroup);
     DOM.editGroupModalSave.addEventListener("click", editGroup);
@@ -210,24 +213,44 @@ export function initEvents() {
         };
     });
 
+    DOM.createBookmarkTitle.addEventListener('keydown', e => {
+        if (e.code === "Enter") {
+            e.preventDefault();
+            if (handleCreateBookmarkEnter())
+                quickCreateBookmark();
+        }
+    });
+    DOM.createBookmarkURL.addEventListener('keydown', e => {
+        if (e.code === "Enter") {
+            e.preventDefault();
+            if (handleCreateBookmarkEnter())
+                quickCreateBookmark();
+        }
+    });
+    function handleCreateBookmarkEnter() {
+        if (DOM.createBookmarkTitle.value.trim() === '') {
+            DOM.createBookmarkTitle.value = ''
+            DOM.createBookmarkTitle.focus();
+            return false;
+        }
+        if (DOM.createBookmarkURL.value.trim() === '') {
+            DOM.createBookmarkURL.value = ''
+            DOM.createBookmarkURL.focus();
+            return false;
+        }
+        return true;
+    }
+
     DOM.modalTitle.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            saveBookmark();
+            editBookmark();
         }
     });
-
     DOM.modalURL.addEventListener('keydown', e => {
         if (e.code === "Enter") {
             e.preventDefault();
-            saveBookmark();
-        }
-    });
-
-    DOM.createDialModalURL.addEventListener('keydown', e => {
-        if (e.code === "Enter") {
-            e.preventDefault();
-            quickCreateBookmark();
+            editBookmark();
         }
     });
 
@@ -656,16 +679,17 @@ function handleMessages(message) {
             //     groupId: groupId,
             //     url,
             //     thumbnail: images[0],
-            //     bgColor
+            //     bgColor,
+            //     isMutiRefreshThumbs
             // }]
-            Toast.info(`缩略图获取成功`, msgDelay)
+            if (message.data.isMutiRefreshThumbs === false) Toast.info(`缩略图获取成功`, msgDelay)
             setBackgroundImages(message.data);
             // hideToast();
         } else if (message.type === 'thumbUpdateErr') {
             Toast.error("获取缩略图失败 url: " + message.data.url + " 错误信息: " + message.data.err, msgDelay);
         }
-    }else{
-        Toast.error("message.data 内容为空",msgDelay);
+    } else {
+        Toast.error("message.data 内容为空", msgDelay);
     }
 }
 

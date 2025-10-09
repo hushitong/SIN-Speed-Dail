@@ -12,7 +12,8 @@ export const DOM = {
 
     createDialModal: document.getElementById('createDialModal'),
     createDialModalContent: document.getElementById('createDialModalContent'),
-    createDialModalURL: document.getElementById('createDialModalURL'),
+    createBookmarkTitle: document.getElementById('createBookmarkTitle'),
+    createBookmarkURL: document.getElementById('createBookmarkURL'),
     createBookmarkModalSave: document.getElementById('createDialModalSave'),
 
     createGroupModal: document.getElementById('creategroupModal'),

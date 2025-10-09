@@ -82,7 +82,7 @@
         </ul>
     </div>
 
-    <!-- tile modal window -->
+    <!-- edit dial modal window -->
     <div class="modal" id="tileModal">
         <div class="modal-content" id="tileModalContent">
             <form action="" class="tileForm">
@@ -164,8 +164,12 @@
     <div class="modal" id="createDialModal">
         <div class="modal-content" id="createDialModalContent">
             <form action="" class="tileForm">
-                <div class="formItem"><label data-locale="address" for="createDialModalURL">Address</label></div>
-                <div class="formItem"><input id="createDialModalURL" type="text"></div>
+                <div class="formItem"><label data-locale="tileTitle" for="createBookmarkTitle">Title</label></div>
+                <div class="formItem"><input id="createBookmarkTitle" type="text">
+                    <div class="inputBorder"></div>
+                </div>
+                <div class="formItem"><label data-locale="address" for="createBookmarkURL">Address</label></div>
+                <div class="formItem"><input id="createBookmarkURL" type="text"></div>
                 <div class="formItem">
                     <p style="color:grey;"><em data-locale="captureMessage">This will temporarily open the
                             site in a new tab to capture the image</em></p>
@@ -529,14 +533,14 @@
                 <hr>
                 <div class='row'>
                     <div class='column'>
-                        <label id="initSettingBtn" data-locale="initSettingBtn"
-                            class="settingsCtl settingsLink">initial setting</label>
+                        <label id="initSettingBtn" data-locale="initSettingBtn" class="settingsCtl settingsLink">initial
+                            setting</label>
                     </div>
                 </div>
                 <div class='row'>
                     <div class='column'>
-                        <label id="clearAllBtn" data-locale="clearAllBtn"
-                            class="settingsCtl settingsLink">clear all datas</label>
+                        <label id="clearAllBtn" data-locale="clearAllBtn" class="settingsCtl settingsLink">clear all
+                            datas</label>
                     </div>
                 </div>
                 <div class='row'>

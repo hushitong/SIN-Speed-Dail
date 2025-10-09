@@ -19,9 +19,8 @@ function rectifyUrl(url) {
 // 添加新书签
 export function quickCreateBookmark() {
     console.log("createBookmark");
-    let url = rectifyUrl(DOM.createDialModalURL.value.trim());
-    // todo: 真正使用标题而不是 URL 作为标题
-    let title = url;
+    let title = DOM.createBookmarkTitle.value.trim();
+    let url = rectifyUrl(DOM.createBookmarkURL.value.trim());
     saveNewBookmark(state.currentGroupId, url, title).then(result => {
         hideModals();
         Toast.success(`成功添加书签，url：${url}`);
@@ -99,17 +98,15 @@ export async function saveNewBookmark(groupId, url, title) {
 // 实际作用就是根据 groupId 和 bookmarks 数组，生成指定分组的书签列表的 DOM 节点并插入到页面中
 // selectedGroupId 是要显示的分组，bookmarks 是该分组的书签数组
 export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
-    console.log("printBookmarksByGroupId:", bookmarks, selectedGroupId);
+    console.log("buildBookmarksByGroupId:", bookmarks, selectedGroupId);
     let fragment = document.createDocumentFragment();
 
     // Collect URLs for batch thumbnail fetching
     //let urls = bookmarks.filter(b => b.url?.startsWith("http")).map(b => b.url);
 
-    // todo: 使用批量获取缩略图，优化性能
-    // chrome.runtime.sendMessage({target: 'background', type: 'getThumbs', data: bookmarks})
-
     // 当该分组具有书签时，生成书签 DOM 节点
     if (bookmarks) {
+        // todo: 观察是否需要批量获取而不是一个个获取
         let thumbIds = bookmarks.map(b => state.defaultThumbPrefix + b.id);
         let thumbnails = await chrome.storage.local.get(thumbIds);
         console.log("thumbnails fetched:", thumbnails);
@@ -201,15 +198,6 @@ export async function buildBookmarksByGroupId(bookmarks, selectedGroupId) {
         groupContainerEl.style.display = 'none';
         groupContainerEl.style.opacity = "0";
 
-        // console.log("printBookmarksByGroupId currentGroupId", state.currentGroupId)
-        // if (state.currentGroupId === selectedGroupId) {
-        //     groupContainerEl.style.display = "flex"
-        //     setTimeout(() => {
-        //         groupContainerEl.style.opacity = "1";
-        //         animate();
-        //     }, 20);
-        //     // document.querySelector(`[groupid="${currentGroupId}"]`)?.classList.add('activegroup'); //需要在这里设置当前分组为激活状态吗
-        // }
         DOM.bookmarksContainerParent.append(groupContainerEl);
     } else {
         groupContainerEl.innerHTML = '';
@@ -479,13 +467,12 @@ export function getThumbsFromLocal(bookmarkId) {
         });
 }
 
-
+// 刷新单个书签的缩略图
 export function refreshThumbnails(url, tileid) {
     // the div id is "groupid-boookmarkid"
     let parentId = tileid.split("-")[0];
     let id = tileid.split("-")[1];
 
-    Toast.info(' Capturing images...')
     chrome.runtime.sendMessage({ target: 'background', type: 'refreshThumbs', data: { url, id, parentId } });
 }
 
@@ -507,7 +494,7 @@ export async function refreshAllThumbnails() {
         }
     });
     chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { bookmarks } });
-    Toast.info(' Capturing images...')
+
 }
 
 ///////////////////////////////////////////////////////////////
@@ -578,7 +565,7 @@ function batchApplyImages(elements) {
 }
 
 // 修改书签
-export function saveBookmark() {
+export function editBookmark() {
     let id = state.targetTileId.split('-')[1];
     // todo: cleanup this abomination when im not on drugs
     let title = DOM.modalTitle.value;

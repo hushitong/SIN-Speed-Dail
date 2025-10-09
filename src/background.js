@@ -3,6 +3,7 @@
 const defaultThumbPrefix = 'thumb_'; // 缩略图在 storage 中的 key 前缀
 const fetchScreenshotTimeout = 5000; // 截图超时时间，单位毫秒
 const isSetContextMenus = true; // 是否启用右键菜单功能，默认禁用，我个人不喜欢在右键菜单拉屎的做法
+let isMutiRefreshThumbs = false;	// 是否批量刷新缩略图，刷新单个书签缩略图为 false
 
 // EVENT LISTENERS //
 chrome.runtime.onMessage.addListener(handleMessages);
@@ -22,23 +23,24 @@ async function handleMessages(message, sender, sendResponse) {
 	}
 
 	switch (message.type) {
-		case 'handleBookmarkChanged':
+		case 'handleBookmarkChanged':	// 添加、修改书签触发，获得书签的缩略图
+			isMutiRefreshThumbs = false
 			await handleBookmarkChanged(message.data);
 			break;
 		case 'refreshThumbs':	// 手动刷新某个书签的缩略图
+			isMutiRefreshThumbs = false
 			handleManualRefresh(message.data);
 			break;
 		case 'refreshAllThumbs':	// 刷新当前分组所有书签的缩略图
+			isMutiRefreshThumbs = true;
 			handleRefreshAllThumbs(message.data);
 			break;
 		case 'handleBookmarkAddFromPopup':	// 在 popup.js 里点击分组后，发送的新增 bookmark 消息
+			isMutiRefreshThumbs = false;
 			await handlePopupAction(message.data);
 			break;
-		case 'saveThumbnails':	// 在新增 bookmark 时，由 offscreen 发送回来的缩略图
-			handleOffscreenFetchDone(message.data, message.forcePageReload);
-			break;
-		case 'getThumbs':
-			handleGetThumbs(message.data);
+		case 'offscreenFetchDone':	// 在新增 bookmark 时，由 offscreen 发送回来的缩略图
+			handleOffscreenFetchDone(message.data);
 			break;
 		default:
 			console.warn(`Unexpected message type received: '${message.type}'.`);
@@ -81,50 +83,7 @@ async function createBookmarkThumb(info) {
 	const thumbData = await chrome.storage.local.get(defaultThumbPrefix + id);
 	console.log("org thumbData:", thumbData);
 
-	getThumbnailAndSendMsg(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false, forcePageReload: false });
-	// getThumbnails(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false, forcePageReload: true });
-}
-
-async function handleGetThumbs(data, batchSize = 50) {
-	console.log("bg handleGetThumbs", data);
-	let bookmarks = data.filter(bookmark => bookmark.url?.startsWith("http"));
-
-	if (!bookmarks.length) return;
-
-	// Fetch all thumbnails in batches
-	for (let i = 0; i < bookmarks.length; i += batchSize) {
-		let batch = bookmarks.slice(i, i + batchSize);
-
-		let urls = batch.map(bookmark => bookmark.url);
-		let results = await chrome.storage.local.get(urls);
-
-		let thumbs = batch
-			.map(bookmark => {
-				let storedData = results[bookmark.url];
-				if (!storedData) return null;
-
-				return {
-					id: bookmark.id,
-					parentId: bookmark.parentId,
-					url: bookmark.url,
-					thumbnail: storedData.thumbnails[storedData.thumbIndex || 0],
-					bgColor: storedData.bgColor
-				};
-			})
-			.filter(thumb => thumb !== null); // Remove nulls if some bookmarks have no stored data
-
-		if (thumbs.length) {
-			chrome.runtime.sendMessage({
-				target: 'newtab',
-				type: 'thumbBatch',
-				data: thumbs
-			});
-		}
-
-		// todo: maybe replace this with a message port so we dont blast every tab
-		// Short delay to avoid overwhelming message passing
-		await new Promise(resolve => setTimeout(resolve, 5));
-	}
+	getThumbnailAndSendMsg(info.url, id, groupId, { quickRefresh: false, forceScreenshot: false });
 }
 
 async function getBookmarks(groupId) {
@@ -143,7 +102,7 @@ async function getBookmarks(groupId) {
 // 刷新书签的缩略图
 function handleManualRefresh(data) {
 	if (data.url && (data.url.startsWith('https://') || data.url.startsWith('http://'))) {
-		getThumbnailAndSendMsg(data.url, data.id, data.parentId, { quickRefresh: true, forceScreenshot: true, forcePageReload: false }).then(() =>
+		getThumbnailAndSendMsg(data.url, data.id, data.parentId, { quickRefresh: true, forceScreenshot: true }).then(() =>
 			chrome.storage.local.remove(defaultThumbPrefix + data.id)
 		)
 	};
@@ -176,13 +135,13 @@ async function handleRefreshAllThumbs(data) {
 
 	// 初次进行处理，没有重试机制
 	async function refreshBatch(bookmarks, progress, index = 0) {
-		const batchSize = 2;
+		const batchSize = 1;
 		const batch = bookmarks.slice(index, index + batchSize);
 
 		if (batch.length) {
 			// 用 Promise.allSettled，确保总是 resolve 但可检查失败
 			const settledResults = await Promise.allSettled(batch.map(async (bookmark) => {
-				await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false });
+				await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false });
 				return bookmark.id;
 			}));
 
@@ -206,12 +165,11 @@ async function handleRefreshAllThumbs(data) {
 			});
 			refreshBatch(bookmarks, progress, index + batchSize);
 		} else {
-			// 所有初次 batch 结束时发送完成信号（初次阶段）
-			sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'initial_complete' } });
 			console.log(`Initial refresh all thumbs completed: ${progress.success} success, ${progress.failed} failed`);
 
 			// 如果有错误，触发重试
 			if (progress.errors.length > 0) {
+				sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'initial_complete' } });
 				refreshBatchRetry(progress);
 			} else {
 				sendProgressToFrontend({ type: 'ThumbProgress', data: { ...progress, status: 'complete' } });
@@ -234,7 +192,7 @@ async function handleRefreshAllThumbs(data) {
 
 			while (retryAttempts > 0) {
 				try {
-					await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false, forcePageReload: false });
+					await getThumbnail(bookmark.url, bookmark.id, bookmark.groupId, { quickRefresh: true, forceScreenshot: false });
 
 					progress.success++;
 					progress.failed--;
@@ -265,7 +223,7 @@ async function handleRefreshAllThumbs(data) {
 	}
 }
 // 调用 getThumbnail，然后只处理 newtab 消息
-async function getThumbnailAndSendMsg(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
+async function getThumbnailAndSendMsg(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false }) {
 	console.log("bg getThumbnails", url, id, groupId, options);
 
 	try {
@@ -281,12 +239,10 @@ async function getThumbnailAndSendMsg(url, id, groupId, options = { quickRefresh
 	} catch (err) {
 		console.log("getThumbnails err:", err);
 		sendProgressToFrontend({ type: 'thumbUpdateErr', data: { url, err: err.message } });
-
-		// throw err;
 	}
 }
-// 生成缩略图,假如存在 screenshot 就用 screenshot,否则传消息给 offscreen 进行截图
-async function getThumbnail(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false, forcePageReload: false }) {
+// 生成缩略图，假如存在 screenshot 就用 screenshot，否则传消息给 offscreen 进行截图
+async function getThumbnail(url, id, groupId, options = { quickRefresh: false, forceScreenshot: false }) {
 	console.log("bg getThumbnailsWithoutSendMsg", url, id, groupId, options);
 
 	if (!url || !id) {
@@ -309,7 +265,6 @@ async function getThumbnail(url, id, groupId, options = { quickRefresh: false, f
 				groupId: groupId,
 				screenshot: screenshot,
 				quickRefresh: options.quickRefresh,
-				forcePageReload: options.forcePageReload,
 			}
 		});
 		console.log('offscreen response:', offscreenResponse);
@@ -394,7 +349,7 @@ async function createBookmarkNotFromNewtab(from, tab) {
 		}
 	});
 
-	await getThumbnailAndSendMsg(tab.url, newId, groupId, { quickRefresh: false, forceScreenshot: true, forcePageReload: false })
+	await getThumbnailAndSendMsg(tab.url, newId, groupId, { quickRefresh: false, forceScreenshot: true })
 
 	// 生成唯一ID
 	function generateId() {
@@ -503,11 +458,11 @@ async function setupOffscreenDocument(path) {
 }
 
 // 处理由 Offscreen document 发送回来的缩略图数据
-async function handleOffscreenFetchDone(data, forcePageReload) {
-	console.log("bg handleOffscreenFetchDone", data, forcePageReload);
-	saveThumbnails(data.url, data.id, data.parentId, data.thumbs, data.bgColor, forcePageReload);
+async function handleOffscreenFetchDone(data) {
+	console.log("bg handleOffscreenFetchDone", data);
+	saveThumbnails(data.url, data.id, data.parentId, data.thumbs, data.bgColor);
 
-	async function saveThumbnails(url, id, groupId, images, bgColor, forcePageReload = false) {
+	async function saveThumbnails(url, id, groupId, images, bgColor) {
 		console.log("bg saveThumbnails");
 		if (images && images.length) {
 			let thumbnails = [];
@@ -520,23 +475,19 @@ async function handleOffscreenFetchDone(data, forcePageReload) {
 			thumbnails = thumbnails.flat();
 			await chrome.storage.local.set({ [thumbId]: { thumbnails, thumbIndex: 0, bgColor } })
 		}
-		// refresh open new tab page
-		if (forcePageReload) {
-			// we have new sites, reload the page
-			refreshOpen();
-		} else {
-			chrome.runtime.sendMessage({
-				target: 'newtab',
-				type: 'thumbUpdateSuccess',
-				data: [{
-					id,
-					groupId: groupId,
-					url,
-					thumbnail: images[0],
-					bgColor
-				}]
-			});
-		}
+
+		chrome.runtime.sendMessage({
+			target: 'newtab',
+			type: 'thumbUpdateSuccess',
+			data: [{
+				id,
+				groupId: groupId,
+				url,
+				thumbnail: images[0],
+				bgColor,
+				isMutiRefreshThumbs
+			}]
+		});
 	}
 }
 

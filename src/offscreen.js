@@ -25,7 +25,6 @@ async function handleMessages(message, sender, sendResponse) {
 
     let screenshot = message.data.screenshot;
     let quickRefresh = message.data.quickRefresh;
-    let forcePageReload = message.data.forcePageReload;
     let id = message.data.id;
     let groupId = message.data.groupId;
     let resizedImages = [];
@@ -69,11 +68,12 @@ async function handleMessages(message, sender, sendResponse) {
         bgColor = await getBgColor(thumbs[0])
     }
 
-    chrome.runtime.sendMessage({ target: 'background', type: 'saveThumbnails', data: { url, id, parentId: groupId, thumbs, bgColor }, forcePageReload });
+    let sendMessageToNewtab = true
+    chrome.runtime.sendMessage({ target: 'background', type: 'offscreenFetchDone', data: { url, id, parentId: groupId, thumbs, bgColor } });
 
     // 异步处理完成后，调用 sendResponse 关闭通道（即使无数据返回）
-	console.log('Sending response');
-	sendResponse({ success: true });
+    console.log('Sending response');
+    sendResponse({ success: true });
 }
 
 function offscreenCanvasShim(w = 1, h = 1) {

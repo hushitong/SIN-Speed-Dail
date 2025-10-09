@@ -556,7 +556,6 @@ a {
     border: none;
 }
 
-.formItem>label {}
 
 .formItem>.action {
     position: relative;
@@ -720,23 +719,16 @@ input:focus+.inputBorder,
 
 .sidenav {
     height: 100%;
-    /* 100% Full-height */
     width: 320px;
-    /* 0 width - change this with JavaScript */
     position: fixed;
-    /* Stay in place */
     transform: translateX(100%);
     z-index: 2;
-    /* Stay on top */
     top: 0;
-    /* Stay at the top */
     right: 0;
     background: rgba(0, 0, 0, 1);
     box-shadow: none;
     overflow-x: hidden;
-    /* Disable horizontal scroll */
     transition: 360ms;
-    /* 0.5 second transition effect to slide in the sidenav */
     color: white;
     display: none;
     justify-content: center;

@@ -115,7 +115,7 @@ export function createGroup() {
     const id = "G." + generateId();
     state.data.groups.push({ id: id, title: name, position: orgGroupCount + 1, color: '#6b47aaff' });
 
-    const groups = state.data.groups;       
+    const groups = state.data.groups;
     saveData({ groups }).then(() => {
         hideModals();
         reBuildGroupPages();
@@ -139,6 +139,7 @@ export function editGroup() {
 
 // 移除分组
 export function removeGroup() {
+    let targetBookmark = state.data.groups.find(g => g.id === state.targetGroupId);
     let updateGroups = state.data.groups.filter(g => g.id !== state.targetGroupId);
     let updateBookmarks = state.data.bookmarks.filter(b => b.groupId !== state.targetGroupId);
 
@@ -147,16 +148,18 @@ export function removeGroup() {
 
     saveData({ groups: updateGroups, bookmarks: updateBookmarks }).then(() => {
         hideModals();
-        Toast.success("Goup Remove!");
+        Toast.success(`分组 ${targetBookmark.title} 已删除!`);
         if (state.currentGroupId === state.targetGroupId) {
             let homeGroupId = state.homeGroup.id;
             state.currentGroupId = homeGroupId;
             state.settings.currentGroupId = homeGroupId;
             chrome.storage.local.set({ settings: state.settings });
             reBuildGroupPages();
-            buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId);
-            activeBookmarksContainer(homeGroupId);
             activeGroup(homeGroupId);
+            buildBookmarksByGroupId(state.data.bookmarks.filter(b => b.groupId === homeGroupId), homeGroupId).then(() => {
+                // setTimeout(()=>console.log(),100)
+                activeBookmarksContainer(homeGroupId);
+            });
         } else {
             reBuildGroupPages();
         }
