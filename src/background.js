@@ -494,6 +494,7 @@ async function handleOffscreenFetchDone(data) {
 // 如果目标页面就是当前 tab，直接用 chrome.tabs.captureVisibleTab 截图。
 // 否则：新开一个后台 tab，等页面加载完成后截图，再关闭。
 // 不能使用 popup，因为 popup 有可能由于浏览器策略被延迟/挂起，而不能准时激活 onUpdated 方法
+let fetchTimeout = 10000
 async function fetchScreenshot(url) {
 	return new Promise((resolve, reject) => {
 		try {
@@ -504,8 +505,9 @@ async function fetchScreenshot(url) {
 
 				let activeTab = tabs[0]; // 当前活跃标签（因为 query 指定 active: true）
 
+				// 当前活跃标签匹配 URL（右键菜单场景或类似）
 				if (activeTab && activeTab.url && activeTab.url.startsWith(url)) {
-					// 当前活跃标签匹配 URL（右键菜单场景或类似）
+
 					// 检查是否被阻塞
 					const finalUrl = activeTab.url;
 					if (finalUrl.startsWith('extension://') || finalUrl.includes('document-blocked.html')) {
@@ -520,76 +522,109 @@ async function fetchScreenshot(url) {
 							resolve(dataUrl);
 						}
 					});
-				} else {
-					// URL 不匹配当前活跃标签：新建后台标签处理
+				} else { // URL 不匹配当前活跃标签：新建后台标签处理
 					chrome.windows.getCurrent({ populate: true }, (currentWindow) => {
 						if (chrome.runtime.lastError) {
 							return reject(chrome.runtime.lastError || new Error("Failed to get current window"));
 						}
 
 						const windowId = currentWindow.id;
-						const previousActiveTab = currentWindow.tabs.find(tab => tab.active);
 
 						chrome.tabs.create({ url: url, active: false, windowId: windowId }, (newTab) => {
 							if (chrome.runtime.lastError) {
+								console.error("[tabs.create] 失败:", chrome.runtime.lastError); // 日志1
 								return reject(chrome.runtime.lastError || new Error("Failed to create tab"));
 							}
 
 							const tabId = newTab.id;
+							console.log(`[标签创建成功] tabId: ${tabId}，开始加载URL: ${url}`); // 日志2
+							let isTabExist = true; // 标签页是否存在
+							let timeoutId;
 
-							let timeoutId = setTimeout(() => {
-								chrome.tabs.onUpdated.removeListener(onUpdated);
-								chrome.tabs.remove(tabId);
-								reject(new Error("Timeout: Page took too long to load"));
-							}, 10000); // 10 秒超时
+							timeoutId = setTimeout(() => {
+								if (isTabExist) {
+									console.log(`[超时触发] tabId: ${tabId} 加载超过10秒，准备移除`); // 日志3
+									isTabExist = false;
+									chrome.tabs.remove(tabId, () => {
+										if (chrome.runtime.lastError) {
+											console.error(`[超时移除失败] tabId: ${tabId}，错误:`, chrome.runtime.lastError); // 日志4
+										} else {
+											console.log(`[超时移除成功] tabId: ${tabId}`); // 日志5
+										}
+									});
+									reject(new Error("Timeout: Page took too long to load"));
+								}
+							}, fetchTimeout);
 
 							function onUpdated(updatedTabId, changeInfo) {
-								if (updatedTabId === tabId && changeInfo.status === 'complete') {
-									clearTimeout(timeoutId);
-									chrome.tabs.onUpdated.removeListener(onUpdated);
+								if (updatedTabId !== tabId) return;
+								console.log(`[标签更新] tabId: ${tabId}，状态: ${changeInfo.status || '未知'}`); // 日志6
 
-									// 检查是否被阻塞
-									chrome.tabs.get(tabId, (tab) => {
+								if (changeInfo.status !== 'complete' || !isTabExist) return;
+								clearTimeout(timeoutId);
+								chrome.tabs.onUpdated.removeListener(onUpdated);
+								console.log(`[标签加载完成] tabId: ${tabId}，准备检查有效性`); // 日志7
+
+								// 检查标签是否仍存在
+								chrome.tabs.get(tabId, (tab) => {
+									if (chrome.runtime.lastError) {
+										console.error(`[tabs.get 失败] tabId: ${tabId} 已不存在，错误:`, chrome.runtime.lastError); // 日志8
+										isTabExist = false;
+										return reject(new Error(`Tab no longer exists (get after complete, tabId: ${tabId})`));
+									}
+									console.log(`[tabs.get 成功] tabId: ${tabId} 仍存在，URL: ${tab.url}`); // 日志9
+
+									const finalUrl = tab.url;
+									if (finalUrl.startsWith('extension://') || finalUrl.includes('document-blocked.html')) {
+										isTabExist = false;
+										chrome.tabs.remove(tabId, () => {
+											if (chrome.runtime.lastError) {
+												console.warn("Blocked tab removal failed", chrome.runtime.lastError);
+											}
+										});
+										return reject(new Error("Page blocked by extension (e.g., ad blocker)"));
+									}
+
+									// 激活标签以捕获截图
+									chrome.tabs.update(tabId, { active: true }, () => {
+										if (!isTabExist)
+											return reject(new Error("Failed to activate tab"));
 										if (chrome.runtime.lastError) {
+											console.error(`[tabs.update 激活失败] tabId: ${tabId}，错误:`, chrome.runtime.lastError); // 日志10
+											isTabExist = false;
 											chrome.tabs.remove(tabId);
 											return reject(chrome.runtime.lastError);
 										}
+										console.log(`[tabs.update 激活成功] tabId: ${tabId}`); // 日志11
 
-										const finalUrl = tab.url;
-										if (finalUrl.startsWith('extension://') || finalUrl.includes('document-blocked.html')) {
-											chrome.tabs.remove(tabId);
-											return reject(new Error("Page blocked by extension (e.g., ad blocker)"));
-										}
+										setTimeout(() => {
+											if (!isTabExist) {
+												console.log(`[截图前无效] tabId: ${tabId} 已被标记为无效`); // 日志12
+												return
+											};
+											// 捕获截图
+											chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
+												const captureError = chrome.runtime.lastError;
+												console.log(`[截图完成] tabId: ${tabId}，准备移除标签`); // 日志13
 
-										// 临时激活标签以捕获截图
-										chrome.tabs.update(tabId, { active: true }, () => {
-											if (chrome.runtime.lastError) {
-												chrome.tabs.remove(tabId);
-												return reject(chrome.runtime.lastError);
-											}
-
-											setTimeout(() => {
-												// 捕获截图
-												chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, (dataUrl) => {
-													const captureError = chrome.runtime.lastError;
-
+												if (isTabExist) {
+													isTabExist = false;
 													// 无论成功失败，关闭新标签并恢复原活跃标签
 													chrome.tabs.remove(tabId, () => {
-														if (previousActiveTab && previousActiveTab.id !== tabId) {
-															chrome.tabs.update(previousActiveTab.id, { active: true });
-														}
+														console.log(`[临时标签关闭] tabId: ${tabId}，浏览器将自动恢复活跃标签`);
 													});
+												}
 
-													if (captureError || !dataUrl) {
-														reject(captureError || new Error("captureVisibleTab failed"));
-													} else {
-														resolve(dataUrl);
-													}
-												});
-											}, 300); // 等待300ms，确保页面渲染完成再截图
-										});
+												if (captureError || !dataUrl) {
+													console.error(`[截图失败] tabId: ${tabId}，错误:`, captureError); // 日志17
+													reject(captureError || new Error("captureVisibleTab failed"));
+												} else {
+													resolve(dataUrl);
+												}
+											});
+										}, 500); // 等待，确保页面渲染完成再截图
 									});
-								}
+								});
 							}
 
 							chrome.tabs.onUpdated.addListener(onUpdated);
@@ -598,6 +633,7 @@ async function fetchScreenshot(url) {
 				}
 			});
 		} catch (err) {
+			console.error(`[全局异常] 错误:`, err); // 日志18
 			reject(err);
 		}
 	});

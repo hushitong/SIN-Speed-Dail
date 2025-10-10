@@ -259,6 +259,7 @@ h1 {
     opacity: 1;
     border-bottom-color: #0078ff;
     transition: padding 160ms ease, outline 160ms ease;
+    transform: translateY(-1px);
 }
 
 .activegroup {
@@ -292,6 +293,10 @@ h1 {
     position: relative;
     display: flex;
     flex-direction: column;
+}
+
+.tile-main:not(.createDial) :hover {
+    border: lightblue outset;
 }
 
 .tile-content {
